@@ -60,8 +60,15 @@ pub fn build(b: *std.Build) !void
         .target = target,
         .optimize = optimize,
     });
-    module.addIncludePath(raylib.builder.path("src"));
-    module.linkLibrary(rlLib);
+
+    const moduleRl = b.addModule("zigkm-raylib", .{
+        .root_source_file = b.path("src/raylib.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    moduleRl.addImport("zigkm", module);
+    moduleRl.addIncludePath(raylib.builder.path("src"));
+    moduleRl.linkLibrary(rlLib);
 
     const testStep = b.step("test", "Test");
     const testSrcs = [_][]const u8 {

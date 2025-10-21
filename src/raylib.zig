@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const m = @import("math.zig");
+const m = @import("zigkm").math;
 
 pub const c = @cImport({
     @cInclude("raylib.h");
