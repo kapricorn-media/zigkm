@@ -1,0 +1,29 @@
+.{
+    .name = .zigkm,
+    .version = "0.1.0",
+    .fingerprint = 0xcbfcc5d6c260cd8f, // Changing this has security and trust implications.
+    .minimum_zig_version = "0.15.1",
+    .dependencies = .{
+        .zlib = .{
+            .url = "https://zlib.net/zlib-1.3.1.tar.gz",
+            .hash = "N-V-__8AAJj_QgDBhU17TCtcvdjOZZPDfkvxrEAyZkc14VN8",
+        },
+        .raylib = .{
+            .url = "https://github.com/raysan5/raylib/archive/bbf884d7b3068089d007ccc9a9eac0e7ea59af2b.tar.gz",
+            .hash = "raylib-5.5.0-whq8uLxNxwSGbI-mjcBlWs2dw91UP-fIYLLLxIeFBMu5",
+        },
+        .raygui = .{
+            .url = "https://github.com/raysan5/raygui/archive/9193f38424f75290eb3b53db6a940606daa14af9.tar.gz",
+            .hash = "N-V-__8AADAbbwDkOtWI9x-qrMu4ZqJxHfupa4DTE0st_Qo-",
+        },
+        .tracy = .{
+            .url = "https://github.com/wolfpld/tracy/archive/c556831ddc6fe26d2fce01c14c97205a9dad46d5.tar.gz",
+            .hash = "N-V-__8AANptPwE8EYOS5w6KRzVyfllpOBthYRcuuQvYhhxb",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
