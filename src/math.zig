@@ -49,6 +49,12 @@ pub fn randAngle(rand: std.Random) f32
     return rand.float(f32) * std.math.tau;
 }
 
+pub fn round(v: f32, decimals: u8) f32
+{
+    const mult = std.math.pow(f32, 10.0, @floatFromInt(decimals));
+    return @round(v * mult) / mult;
+}
+
 // For @Vector types.
 pub fn lerpV(a: anytype, b: anytype, t: anytype) @TypeOf(a, b)
 {
