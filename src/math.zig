@@ -55,12 +55,11 @@ pub fn round(v: f32, decimals: u8) f32
     return @round(v * mult) / mult;
 }
 
-// For @Vector types.
 pub fn lerpV(a: anytype, b: anytype, t: anytype) @TypeOf(a, b)
 {
-    const Type = @TypeOf(a, b);
-    const tSplat: Type = @splat(t);
-    return @mulAdd(Type, b - a, tSplat, a);
+    const T = @TypeOf(a, b);
+    const tSplat: T = @splat(t);
+    return @mulAdd(T, b - a, tSplat, a);
 }
 
 // Given "value" is the result of a lerp between "a" and "b", return the "t" that produced it.
@@ -85,6 +84,18 @@ pub fn smootherstep(t: f32) f32
 {
     const tt = std.math.clamp(t, 0, 1);
     return tt * tt * tt * (tt * (tt * 6 - 15) + 10);
+}
+
+// Frame-rate-independent damping of value v to a target value.
+
+pub fn dampTo(v: f32, target: f32, rate: f32, dt: f32) @TypeOf(v, target)
+{
+    return std.math.lerp(v, target, 1.0 - std.math.pow(f32, rate, dt));
+}
+
+pub fn dampToV(v: anytype, target: anytype, rate: f32, dt: f32) @TypeOf(v, target)
+{
+    return lerpV(v, target, 1.0 - std.math.pow(f32, rate, dt));
 }
 
 // Unsigned subtraction that avoids underflow by "flooring" the result at 0.

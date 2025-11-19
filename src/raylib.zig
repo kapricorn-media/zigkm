@@ -62,6 +62,16 @@ pub fn colorLerp(c1: c.Color, c2: c.Color, t: f32) c.Color
     return c.ColorFromNormalized(c.Vector4Lerp(c1n, c2n, t));
 }
 
+pub fn rectV(pos: c.Vector2, size: c.Vector2) c.Rectangle
+{
+    return .{
+        .x = pos.x,
+        .y = pos.y,
+        .width = size.x,
+        .height = size.y,
+    };
+}
+
 pub fn rect(r: m.Rect) c.Rectangle
 {
     return .{
