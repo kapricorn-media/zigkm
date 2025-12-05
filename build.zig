@@ -60,6 +60,7 @@ pub fn build(b: *std.Build) !void
         .target = target,
         .optimize = optimize,
     });
+    module.linkLibrary(zlib);
 
     const moduleRl = b.addModule("zigkm-raylib", .{
         .root_source_file = b.path("src/raylib.zig"),
