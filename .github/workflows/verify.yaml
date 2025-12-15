@@ -1,0 +1,13 @@
+name: verify
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    uses: kapricorn-media/github/.github/workflows/zig-verify.yaml@main
+    with:
+      zig-version: 0.15.1
+      target: x86_64-linux
