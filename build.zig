@@ -17,6 +17,7 @@ pub fn build(b: *std.Build) !void
         }),
     });
     zlib.installHeadersDirectory(zlibDep.path("."), "", .{});
+    zlib.root_module.sanitize_c = .off; // Workaround for https://github.com/ziglang/zig/issues/23052
     zlib.root_module.addIncludePath(zlibDep.path("."));
     zlib.root_module.addCSourceFiles(.{
         .root = zlibDep.path("."),
