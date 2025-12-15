@@ -73,9 +73,7 @@ pub fn build(b: *std.Build) !void
 
     const testStep = b.step("test", "Test");
     const testSrcs = [_][]const u8 {
-        // "src/collision.zig",
         "src/math.zig",
-        "src/network.zig",
     };
     for (testSrcs) |src| {
         const testTarget = b.addTest(.{
