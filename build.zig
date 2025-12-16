@@ -7,7 +7,10 @@ pub fn build(b: *std.Build) !void
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const zlibDep = b.dependency("zlib", .{});
+    const zlibDep = b.dependency("zlib", .{
+        .target = .target,
+        .optimize = optimize,
+    });
     const zlib = b.addLibrary(.{
         .linkage = .static,
         .name = "zlib",
