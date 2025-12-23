@@ -618,7 +618,7 @@ pub const NetStateClient = struct {
     recvBuffer: [64]PacketServer,
     netStats: NetworkStats,
     serverAddress: std.net.Address,
-    sendPackets: bool,
+    sendPackets: std.atomic.Value(bool),
 
     exit: std.atomic.Value(bool),
     syncLock: std.Thread.Mutex,
@@ -644,6 +644,7 @@ pub const NetStateClient = struct {
     {
         self.playerIndex = 0;
         self.reset();
+        self.sendPackets.store(false, .release);
     }
 };
 
@@ -758,7 +759,7 @@ pub fn netThreadClient(socket: *Socket, ns: *NetStateClient) void
                 ns.syncSnapshots[1] = snapshot.*;
             }
 
-            if (ns.sendPackets) {
+            if (ns.sendPackets.load(.acquire)) {
                 const z = tracy.zoneN(@src(), "packet-client");
                 defer z.end();
 

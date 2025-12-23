@@ -26,6 +26,11 @@ pub fn FixedMemory(comptime StateType: type, comptime N: usize) type
             return self;
         }
 
+        pub fn deinit(self: *Self, a: A) void
+        {
+            a.destroy(self);
+        }
+
         pub fn state(self: *Self) *StateType
         {
             return @ptrCast(&self.permanent);
