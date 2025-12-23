@@ -2,6 +2,8 @@ const std = @import("std");
 
 const raylibBuild = @import("raylib");
 
+pub const version = @import("src/version.zig");
+
 pub fn build(b: *std.Build) !void
 {
     const target = b.standardTargetOptions(.{});
@@ -60,7 +62,7 @@ pub fn build(b: *std.Build) !void
     });
 
     const module = b.addModule("zigkm", .{
-        .root_source_file = b.path("src/root.zig"),
+        .root_source_file = b.path("src/lib.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -74,6 +76,29 @@ pub fn build(b: *std.Build) !void
     moduleRl.addImport("zigkm", module);
     moduleRl.addIncludePath(raylib.builder.path("src"));
     moduleRl.linkLibrary(rlLib);
+
+    const moduleConfigDummy = b.createModule(.{
+        .root_source_file = b.path("src/config_dummy.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const launcherExe = b.addExecutable(.{
+        .name = "km_launcher",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/launcher.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+    if (target.result.os.tag == .windows) {
+        launcherExe.subsystem = .Windows;
+    }
+    launcherExe.root_module.addImport("zigkm", module);
+    launcherExe.root_module.addImport("zigkm-raylib", moduleRl);
+    launcherExe.root_module.addImport("config", moduleConfigDummy);
+    launcherExe.root_module.link_libc = true;
+    b.installArtifact(launcherExe);
 
     const testStep = b.step("test", "Test");
     const testSrcs = [_][]const u8 {
