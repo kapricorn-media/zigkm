@@ -627,24 +627,26 @@ pub const NetStateClient = struct {
 
     const Self = @This();
 
-    pub fn reset(self: *Self) void
+    pub fn reset(self: *Self, offlineMode: bool) void
     {
         self.tickIndex = 1;
         // TODO should we reset sendBuffer?
-        const firstSnapshot = self.stateHistory.getSnapshot(0);
-        firstSnapshot.input = std.mem.zeroes(interface.TickInput);
-        firstSnapshot.state.reset(@intCast(std.time.milliTimestamp()));
+        const last = self.getLastSnapshot();
+        last.input = std.mem.zeroes(interface.TickInput);
+        last.state.reset(@intCast(std.time.milliTimestamp()));
+        if (offlineMode) {
+            self.playerIndex = 0;
+            self.sendPackets.store(false, .release);
+        }
         self.fragState.init();
 
         self.exit = .init(false);
         self.syncLock = .{};
     }
 
-    pub fn startOfflineMode(self: *Self) void
+    pub fn getLastSnapshot(self: *Self) *interface.InputState
     {
-        self.playerIndex = 0;
-        self.reset();
-        self.sendPackets.store(false, .release);
+        return self.stateHistory.getSnapshot(self.tickIndex - 1);
     }
 };
 
@@ -791,7 +793,7 @@ pub fn netThreadClient(socket: *Socket, ns: *NetStateClient) void
                         // Player index received - we are officially connected to the server.
                         std.log.info("assigned player index {}", .{packet.playerIndex});
                         ns.playerIndex = @intCast(packet.playerIndex);
-                        ns.reset();
+                        ns.reset(false);
                     } else {
                         std.log.err("invalid player index {}", .{packet.playerIndex});
                     }

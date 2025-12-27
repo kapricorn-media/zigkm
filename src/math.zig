@@ -224,7 +224,7 @@ pub fn lerpAngle(a1: f32, a2: f32, t: f32) f32
 pub fn angleTo2(from: V2, to: V2) f32
 {
     const dir = to - from;
-    return v2ToAngle(.{dir[0], -dir[1]});
+    return v2ToAngle(.{dir[0], dir[1]});
 }
 
 // Just downcasts to 2D, not fancy 3D angle.
