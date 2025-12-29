@@ -333,6 +333,7 @@ fn serializeAny(comptime T: type, ptr: *const T, writer: *std.io.Writer) !void
 {
     const typeInfo = @typeInfo(T);
     switch (typeInfo) {
+        .void => {},
         .bool => {
             try writer.writeByte(if (ptr.*) 1 else 0);
         },
@@ -406,6 +407,7 @@ fn deserializeAny(comptime T: type, reader: *std.io.Reader, ptr: *T) !void
 {
     const typeInfo = @typeInfo(T);
     switch (typeInfo) {
+        .void => {},
         .bool => {
             const byte = try reader.takeByte();
             ptr.* = byte != 0;
@@ -632,7 +634,7 @@ pub const NetStateClient = struct {
         self.tickIndex = 1;
         // TODO should we reset sendBuffer?
         const last = self.getLastSnapshot();
-        last.input = std.mem.zeroes(interface.TickInput);
+        last.input = .{};
         last.state.reset(@intCast(std.time.milliTimestamp()));
         if (offlineMode) {
             self.playerIndex = 0;
@@ -734,7 +736,7 @@ pub fn netThreadClient(socket: *Socket, ns: *NetStateClient) void
             snapshot.state = snapshotPrev.state;
             if (ns.playerIndex) |pid| {
                 // State prediction
-                snapshot.input = std.mem.zeroes(interface.TickInput);
+                snapshot.input = .{};
                 // TODO prevent this from being used once we get an authoritative input in the past from the server
                 // for (0..game.MAX_PLAYERS) |i| {
                 //     snapshot.input.inputs[i] = snapshotPrev.input.inputs[i].guessNext();
@@ -861,7 +863,7 @@ pub const NetStateServer = struct {
     {
         self.tickIndex = 1;
         const firstSnapshot = self.stateHistory.getSnapshot(0);
-        firstSnapshot.input = std.mem.zeroes(interface.TickInput);
+        firstSnapshot.input = .{};
         firstSnapshot.state.reset(@intCast(std.time.milliTimestamp()));
     }
 
@@ -927,7 +929,7 @@ pub fn netThreadServer(socket: *Socket, ns: *NetStateServer) void
 
             if (ns.anyConnected()) {
                 var currentSnapshot = ns.stateHistory.getSnapshot(ns.tickIndex);
-                currentSnapshot.input = std.mem.zeroes(interface.TickInput);
+                currentSnapshot.input = .{};
 
                 // Replay from previous snapshots if we need to re-process any player input.
                 var tickFrom = ns.tickIndex;

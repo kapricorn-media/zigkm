@@ -23,8 +23,8 @@ pub const Options = struct {
 };
 
 pub const TickInput = struct {
-    hasInput: [OPTIONS.maxPlayers]bool,
-    inputs: [OPTIONS.maxPlayers]PlayerInput,
+    hasInput: [OPTIONS.maxPlayers]bool = .{false} ** OPTIONS.maxPlayers,
+    inputs: [OPTIONS.maxPlayers]PlayerInput = .{PlayerInput{}} ** OPTIONS.maxPlayers,
 };
 
 pub const InputState = struct {
