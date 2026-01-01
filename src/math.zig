@@ -205,6 +205,27 @@ pub fn normalizeAngle(a: f32) f32
     return t * std.math.tau;
 }
 
+// Target angle when lerping between 2 normalized angles, to prevent suddent skips between 0 and tau.
+// Note that the returned angle is intentionally not normalized.
+pub fn targetAngle(to: f32, from: f32) f32
+{
+    const from1 = from - std.math.tau;
+    const from2 = from + std.math.tau;
+    const dist0 = @abs(to - from);
+    const dist1 = @abs(to - from1);
+    const dist2 = @abs(to - from2);
+    if (dist0 < dist1 and dist0 < dist2) {
+        return from;
+    }
+    if (dist1 < dist0 and dist1 < dist2) {
+        return from1;
+    }
+    if (dist2 < dist0 and dist2 < dist1) {
+        return from2;
+    }
+    return from;
+}
+
 pub fn lerpAngle(a1: f32, a2: f32, t: f32) f32
 {
     var minDiff = a2 - a1;
