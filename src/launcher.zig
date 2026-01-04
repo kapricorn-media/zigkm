@@ -78,8 +78,12 @@ fn loadClient(v: version.Version) ClientLoadError!Client
     defer ta.reset();
     const a = ta.allocator();
 
-    // TODO linux (not DLL)
-    const libPath = std.fmt.allocPrint(a, "{s}/{f}/client.dll", .{config.DIR_CLIENTS, v}) catch return error.Other;
+    const libFile = switch (builtin.os.tag) {
+        .windows => "client.dll",
+        .macos => "libclient.dylib",
+        else => unreachable,
+    };
+    const libPath = std.fmt.allocPrint(a, "{s}/{f}/" ++ libFile, .{config.DIR_CLIENTS, v}) catch return error.Other;
     std.log.info("Loading game dynamic library at {s}", .{libPath});
     var lib = std.DynLib.open(libPath) catch |err| switch (err) {
         error.FileNotFound => return error.Missing,
