@@ -7,6 +7,7 @@ const w = @cImport({
 });
 
 const launcher_defs = @import("zigkm").launcher_defs;
+const macos = @import("zigkm").macos;
 const memory = @import("zigkm").memory;
 const version = @import("zigkm").version;
 
@@ -48,7 +49,9 @@ const LoadStep = enum(u8) {
     start,
     download,
     launch,
-    err,
+    no_client,
+    client_load_err,
+    client_exec_err,
 };
 
 const StartMode = enum {
@@ -248,7 +251,7 @@ fn loadThreadEntry(state: *State) void
                                 state.startMode = .online_only;
                             },
                             .online_only => {
-                                state.loadStep = .err;
+                                state.loadStep = .no_client;
                                 state.loadMode.store(.idle, .release);
                             },
                         }
@@ -260,16 +263,18 @@ fn loadThreadEntry(state: *State) void
                         } else {
                             if (loadClient(versions[0])) |c| {
                                 state.client = c;
-                                state.loadMode.store(.idle, .release);
+                                state.loadStep = .launch;
                                 std.log.info("Loaded offline client", .{});
                             } else |err| {
-                                std.log.err("Failed to load err={}", .{err});
-                                state.exit.store(true, .release);
+                                state.loadStep = .client_load_err;
+                                std.log.err("Failed to load client err={}", .{err});
                             }
+                            state.loadMode.store(.idle, .release);
                         }
                     } else |err| {
+                        state.loadStep = .client_load_err;
                         std.log.err("Failed to get versions err={}", .{err});
-                        state.exit.store(true, .release);
+                        state.loadMode.store(.idle, .release);
                     }
                 }
             },
@@ -279,6 +284,14 @@ fn loadThreadEntry(state: *State) void
 
 pub fn main() !void
 {
+    std.log.info("Starting KM launcher", .{});
+
+    if (builtin.os.tag == .macos and !config.DEV) {
+        if (!macos.setWorkingDirectoryToBundleResources()) {
+            std.log.err("Failed to set working dir, resource loading will likely fail", .{});
+        }
+    }
+
     var state: State = .{
         .exit = .init(false),
         .loadMode = .init(.idle),
@@ -289,7 +302,10 @@ pub fn main() !void
     };
 
     state.loadThread = try .spawn(.{}, loadThreadEntry, .{&state});
-    defer state.loadThread.join();
+    defer {
+        state.exit.store(true, .release);
+        state.loadThread.join();
+    }
 
     while (!state.exit.load(.acquire)) {
         if (state.loadMode.load(.acquire) != .load and state.client != null) {
@@ -326,9 +342,7 @@ pub fn main() !void
                     state.requestLoad();
                 },
                 .err => {
-                    // TODO ???
-                    std.log.err("client error", .{});
-                    state.exit.store(true, .release);
+                    state.loadStep = .client_exec_err;
                 },
             }
         } else {
@@ -356,10 +370,19 @@ pub fn main() !void
                             std.log.info("Loaded client, starting...", .{});
                             break;
                         } else {
-                            if (state.loadStep == .err) {
-                                rl.DrawText("ERROR!", 100, 200, 24, rl.WHITE);
-                            } else {
-                                state.requestLoad();
+                            switch (state.loadStep) {
+                                .start, .download, .launch => {
+                                    state.requestLoad();
+                                },
+                                .no_client => {
+                                    rl.DrawText("ERROR: missing client", 100, 200, 24, rl.WHITE);
+                                },
+                                .client_load_err => {
+                                    rl.DrawText("ERROR: client load failed", 100, 200, 24, rl.WHITE);
+                                },
+                                .client_exec_err => {
+                                    rl.DrawText("ERROR: client exec failed", 100, 200, 24, rl.WHITE);
+                                },
                             }
                         }
                     },
@@ -374,8 +397,14 @@ pub fn main() !void
                             .launch => {
                                 rl.DrawText("Launching...", 100, 200, 24, rl.WHITE);
                             },
-                            .err => {
-                                rl.DrawText("ERROR!", 100, 200, 24, rl.WHITE);
+                            .no_client => {
+                                rl.DrawText("ERROR: missing client", 100, 200, 24, rl.WHITE);
+                            },
+                            .client_load_err => {
+                                rl.DrawText("ERROR: client load failed", 100, 200, 24, rl.WHITE);
+                            },
+                            .client_exec_err => {
+                                rl.DrawText("ERROR: client exec failed", 100, 200, 24, rl.WHITE);
                             },
                         }
                     },
