@@ -977,7 +977,7 @@ pub fn netThreadServer(socket: *Socket, ns: *NetStateServer) void
                     const pid: interface.PlayerId = @intCast(i);
                     const ps = &currentSnapshot.state.players[pid];
                     const prevConnected = ps.connected;
-                    ps.connected = conn.connected;
+                    ps.connected = conn.connected or ps.ai;
                     if (!prevConnected and conn.connected) {
                         // Player just connected, init state.
                         std.log.info("{}: CONNECTED p{} ({f})", .{std.time.nanoTimestamp(), pid, conn.address});
