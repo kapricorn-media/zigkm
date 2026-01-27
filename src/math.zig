@@ -12,6 +12,19 @@ pub const V3u = @Vector(3, u32);
 pub const Rect = struct {
     min: V2,
     max: V2,
+
+    pub fn init(origin: V2, size_: V2) Rect
+    {
+        return .{
+            .min = origin,
+            .max = origin + size_,
+        };
+    }
+
+    pub fn size(r: Rect) V2
+    {
+        return r.max - r.min;
+    }
 };
 
 pub fn vXfZ(v: V2, f: f32) V3
