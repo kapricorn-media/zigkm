@@ -4,6 +4,22 @@
     .fingerprint = 0xcbfcc5d6c260cd8f, // Changing this has security and trust implications.
     .minimum_zig_version = "0.15.2",
     .dependencies = .{
+        .stb = .{
+            .url = "https://github.com/nothings/stb/archive/f1c79c02822848a9bed4315b12c8c8f3761e1296.tar.gz",
+            .hash = "N-V-__8AABQ7TgCnPlp8MP4YA8znrjd6E-ZjpF1rvrS8J_2I",
+        },
+        .bearssl = .{
+            .url = "https://github.com/kapricorn-media/BearSSL/archive/3c040368f6791553610e362401db1efff4b4c5b8.tar.gz",
+            .hash = "1220eb049dc92f9d84efde47af4236a481ad40db6d4803d9bfb2ef9efb059a19c8c4",
+        },
+        .httpz = .{
+            .url = "git+https://github.com/karlseguin/http.zig?ref=master#1c0ec3751c53e276d5e0c42b6d5481e72d9d1971",
+            .hash = "httpz-0.0.0-PNVzrEktBwCzPoiua-S8LAYo2tILqczm3tSpneEzLQ9L",
+        },
+        .zigimg = .{
+            .url = "https://github.com/zigimg/zigimg/archive/d7717b3617d58160635623fe86d4bf86065498e0.tar.gz",
+            .hash = "zigimg-0.1.0-8_eo2vBrFQAvZmO9NzDP85_qC5JFksuMdyI_KMMEr4bq",
+        },
         .zlib = .{
             .url = "https://zlib.net/zlib-1.3.1.tar.gz",
             .hash = "N-V-__8AAJj_QgDBhU17TCtcvdjOZZPDfkvxrEAyZkc14VN8",

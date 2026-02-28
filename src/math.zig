@@ -2,30 +2,43 @@ const std = @import("std");
 
 pub const V2 = @Vector(2, f32);
 pub const V3 = @Vector(3, f32);
-pub const V4 = @Vector(3, f32);
+pub const V4 = @Vector(4, f32);
 
 pub const V2i = @Vector(2, i32);
 pub const V2u = @Vector(2, u32);
 pub const V3i = @Vector(3, i32);
 pub const V3u = @Vector(3, u32);
 
-pub const Rect = struct {
-    min: V2,
-    max: V2,
+pub fn RectT(comptime T: type) type
+{
+    const VT = @Vector(2, T);
+    const RT = struct {
+        min: VT,
+        max: VT,
 
-    pub fn init(origin: V2, size_: V2) Rect
-    {
-        return .{
-            .min = origin,
-            .max = origin + size_,
-        };
-    }
+        const Self = @This();
 
-    pub fn size(r: Rect) V2
-    {
-        return r.max - r.min;
-    }
-};
+        pub fn init(origin: VT, size_: VT) Self
+        {
+            return .{
+                .min = origin,
+                .max = origin + size_,
+            };
+        }
+
+        pub fn size(r: Self) VT
+        {
+            return r.max - r.min;
+        }
+    };
+    return RT;
+}
+
+pub const Rect = RectT(f32);
+pub const RectU = RectT(u32);
+
+pub const COLOR_BLACK: V4 = .{0, 0, 0, 1};
+pub const COLOR_WHITE: V4 = .{1, 1, 1, 1};
 
 pub fn vXfZ(v: V2, f: f32) V3
 {
@@ -50,6 +63,23 @@ pub fn vXY0(v: V2) V3
 pub fn vXZ(v: V3) V2
 {
     return .{v[0], v[2]};
+}
+
+pub fn colorU8(v: @Vector(4, u8)) V4
+{
+    return @as(V4, @floatFromInt(v)) / @as(V4, @splat(255.0));
+}
+
+pub fn colorHex(hex: []const u8) !V4
+{
+    if (hex.len != 6 and hex.len != 8) {
+        return error.BadHex;
+    }
+    const r = try std.fmt.parseUnsigned(u8, hex[0..2], 16);
+    const g = try std.fmt.parseUnsigned(u8, hex[2..4], 16);
+    const b = try std.fmt.parseUnsigned(u8, hex[4..6], 16);
+    const a = if (hex.len == 8) try std.fmt.parseUnsigned(u8, hex[6..8], 16) else 255;
+    return colorU8(.{r, g, b, a});
 }
 
 pub fn randF(rand: std.Random, range: V2) f32
@@ -131,6 +161,11 @@ pub fn zero(comptime N: comptime_int) @Vector(N, f32)
     return @splat(0);
 }
 
+pub fn one(comptime N: comptime_int) @Vector(N, f32)
+{
+    return @splat(1);
+}
+
 pub fn splat(comptime N: comptime_int, v: f32) @Vector(N, f32)
 {
     return @splat(v);
@@ -148,6 +183,15 @@ pub fn dot(comptime N: comptime_int, v1: @Vector(N, f32), v2: @Vector(N, f32)) f
 pub fn magSq(comptime N: comptime_int, v: @Vector(N, f32)) f32
 {
     var result: f32 = 0;
+    inline for (0..N) |i| {
+        result += v[i] * v[i];
+    }
+    return result;
+}
+
+pub fn magSqI(comptime N: comptime_int, v: @Vector(N, i32)) i32
+{
+    var result: i32 = 0;
     inline for (0..N) |i| {
         result += v[i] * v[i];
     }
@@ -299,6 +343,11 @@ pub fn spellTargetMaxRange(pos: V3, target: V2, range: f32) V2
         diff *= @splat(range / diffMag);
         return vXZ(pos + diff);
     }
+}
+
+pub fn vInRect(p: V2, r: Rect) bool
+{
+    return @reduce(.And, r.min <= p) and @reduce(.And, p <= r.max);
 }
 
 pub fn isPointInArc(p: V3, origin: V3, angle: f32, arcAngle: f32, radius: f32) bool
