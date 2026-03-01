@@ -17,7 +17,7 @@ pub fn textRect(utf8: []const u8, fontData: *const assets.FontData, width: ?f32)
         max = @max(max, gr.position + gr.size);
     }
 
-    return m.Rect.init(min, max);
+    return m.Rect.init(min, max - min);
 }
 
 const GlyphResult = struct {
