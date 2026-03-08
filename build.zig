@@ -50,6 +50,19 @@ pub fn build(b: *std.Build) !void
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const bearssl = b.dependency("bearssl", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const httpz = b.dependency("httpz", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const zigimg = b.dependency("zigimg", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     if (!target.result.cpu.arch.isWasm() and target.result.abi != .android) { // TODO
         const zlibDep = b.dependency("zlib", .{
             .target = .target,
@@ -119,6 +132,14 @@ pub fn build(b: *std.Build) !void
         moduleRl.addIncludePath(raylib.builder.path("src"));
         moduleRl.linkLibrary(rlLib);
 
+        const module2d = b.addModule("zigkm-2d", .{
+            .root_source_file = b.path("src/2d/lib.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        module2d.addImport("zigkm", module);
+        module2d.addImport("zigimg", zigimg.module("zigimg"));
+
         const moduleConfigDummy = b.createModule(.{
             .root_source_file = b.path("src/config_dummy.zig"),
             .target = target,
@@ -161,19 +182,6 @@ pub fn build(b: *std.Build) !void
     //     // runTest.skip_foreign_checks = true;
     //     testStep.dependOn(&runTest.step);
     // }
-
-    const bearssl = b.dependency("bearssl", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const httpz = b.dependency("httpz", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    const zigimg = b.dependency("zigimg", .{
-        .target = target,
-        .optimize = optimize,
-    });
 
     // // zigkm-kb
     // const kbLib = b.addLibrary(.{
@@ -350,6 +358,7 @@ pub fn build(b: *std.Build) !void
     const testSrcs = [_][]const u8 {
         "src/auth.zig",
         "src/math.zig",
+        "src/psd.zig",
         "src/serialize.zig",
         "src/app/bigdata.zig",
         "src/app/server_utils.zig",

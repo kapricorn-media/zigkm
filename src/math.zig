@@ -35,6 +35,7 @@ pub fn RectT(comptime T: type) type
 }
 
 pub const Rect = RectT(f32);
+pub const RectI = RectT(i32);
 pub const RectU = RectT(u32);
 
 pub const COLOR_BLACK: V4 = .{0, 0, 0, 1};
