@@ -2,13 +2,12 @@ const std = @import("std");
 const builtin = @import("builtin");
 const A = std.mem.Allocator;
 
-const zlib = @cImport({
-    @cInclude("zlib.h");
-});
+const tracy = @import("zigkm-tracy").tracy;
 
 const interface = @import("net_interface.zig");
 const memory = @import("memory.zig");
-const tracy = @import("tracy.zig").tracy;
+const serde = @import("serde.zig");
+const zlib = @import("zlib.zig");
 
 const FRAGMENT_SIZE = 1024;
 const MAX_FRAGMENTS = 255;
@@ -116,7 +115,7 @@ pub const Socket = struct {
         packetSize.* = n;
         var headerReader = std.io.Reader.fixed(self.receiveBuffer[0..4]);
         var fragHeader: FragHeader = undefined;
-        deserializeAny(FragHeader, &headerReader, &fragHeader) catch {
+        serde.deserializeAny(FragHeader, &headerReader, &fragHeader) catch {
             std.log.err("FragHeader deserialize failed", .{});
             return null;
         };
@@ -181,7 +180,7 @@ pub const Socket = struct {
             };
 
             var bufWriter = std.io.Writer.fixed(&buf);
-            serializeAny(FragHeader, &fragHeader, &bufWriter) catch {
+            serde.serializeAny(FragHeader, &fragHeader, &bufWriter) catch {
                 std.log.err("FragHeader serialize failed", .{});
                 return;
             };
@@ -239,282 +238,19 @@ pub const Socket = struct {
     }
 };
 
-fn deflateOneShot(bytes: []const u8, a: A) ![]const u8
-{
-    var stream: zlib.z_stream = std.mem.zeroes(zlib.z_stream);
-    const initErr = zlib.deflateInit2(&stream, 9, zlib.Z_DEFLATED, zlib.MAX_WBITS, 8, zlib.Z_DEFAULT_STRATEGY);
-    if (initErr != zlib.Z_OK) {
-        return error.deflateInit2;
-    }
-
-    const maxSize = zlib.deflateBound(&stream, @intCast(bytes.len));
-    const outBuf = try a.alloc(u8, maxSize);
-    stream.next_in = @constCast(@ptrCast(bytes.ptr));
-    stream.avail_in = @intCast(bytes.len);
-    stream.next_out = @ptrCast(outBuf.ptr);
-    stream.avail_out = @intCast(outBuf.len);
-
-    const deflateErr = zlib.deflate(&stream, zlib.Z_FINISH);
-    if (deflateErr != zlib.Z_STREAM_END) {
-        _ = zlib.deflateEnd(&stream);
-        return error.noEnd;
-    }
-
-    const outLen = stream.total_out;
-    _ = zlib.deflateEnd(&stream);
-    return outBuf[0..outLen];
-}
-
-fn inflateOneShot(bytes: []const u8, a: A) ![]const u8
-{
-    var stream: zlib.z_stream = std.mem.zeroes(zlib.z_stream);
-    const initErr = zlib.inflateInit2(&stream, zlib.MAX_WBITS);
-    if (initErr != zlib.Z_OK) {
-        return error.deflateInit2;
-    }
-
-    const outBuf = try a.alloc(u8, 8 * 1024 * 1024);
-
-    stream.next_in = @constCast(@ptrCast(bytes.ptr));
-    stream.avail_in = @intCast(bytes.len);
-    stream.next_out = @ptrCast(outBuf.ptr);
-    stream.avail_out = @intCast(outBuf.len);
-
-    const inflateErr = zlib.inflate(&stream, zlib.Z_NO_FLUSH);
-    if (inflateErr != zlib.Z_STREAM_END) {
-        _ = zlib.inflateEnd(&stream);
-        return error.noEnd;
-    }
-
-    const outLen = stream.total_out;
-    _ = zlib.deflateEnd(&stream);
-    return outBuf[0..outLen];
-}
-
 fn serializeCompressAny(comptime T: type, ptr: *const T, a: A) ![]const u8
 {
     var bytesRaw = std.io.Writer.Allocating.init(a);
-    try serializeAny(T, ptr, &bytesRaw.writer);
-    return deflateOneShot(bytesRaw.written(), a);
+    try serde.serializeAny(T, ptr, &bytesRaw.writer);
+    return zlib.deflateOneShot(bytesRaw.written(), a);
 }
 
 fn deserializeDecompressAny(comptime T: type, bytes: []const u8, ptr: *T, a: A) !void
 {
-    const rawBytes = try inflateOneShot(bytes, a);
+    const outBuf = try a.alloc(u8, 8 * 1024 * 1024);
+    const rawBytes = try zlib.inflateOneShot(bytes, outBuf);
     var reader = std.io.Reader.fixed(rawBytes);
-    try deserializeAny(T, &reader, ptr);
-}
-
-fn getIntTypePad(comptime signedness: std.builtin.Signedness, comptime bits: comptime_int) type
-{
-    if (bits <= 8) {
-        return if (signedness == .signed) i8 else u8;
-    } else if (bits <= 16) {
-        return if (signedness == .signed) i16 else u16;
-    } else if (bits <= 32) {
-        return if (signedness == .signed) i32 else u32;
-    } else if (bits <= 64) {
-        return if (signedness == .signed) i64 else u64;
-    } else if (bits <= 128) {
-        return if (signedness == .signed) i128 else u128;
-    } else if (bits <= 256) {
-        return if (signedness == .signed) i256 else u256;
-    } else {
-        unreachable;
-    }
-}
-
-fn shouldSerializeField(comptime field: std.builtin.Type.StructField) bool
-{
-    return !std.mem.startsWith(u8, field.name, "ns_");
-}
-
-fn serializeAny(comptime T: type, ptr: *const T, writer: *std.io.Writer) !void
-{
-    const typeInfo = @typeInfo(T);
-    switch (typeInfo) {
-        .void => {},
-        .bool => {
-            try writer.writeByte(if (ptr.*) 1 else 0);
-        },
-        .int => |ti| {
-            const IntType = getIntTypePad(ti.signedness, ti.bits);
-            try writer.writeInt(IntType, ptr.*, SERIAL_ENDIANNESS);
-        },
-        .float => {
-            try writer.writeAll(std.mem.asBytes(ptr));
-        },
-        .vector => |ti| {
-            for (0..ti.len) |i| {
-                try serializeAny(ti.child, &ptr[i], writer);
-            }
-        },
-        .array => |ti| {
-            for (0..ti.len) |i| {
-                try serializeAny(ti.child, &ptr[i], writer);
-            }
-        },
-        .@"struct" => |ti| {
-            if (@hasDecl(T, "serialize")) {
-                comptime std.debug.assert(@hasDecl(T, "deserialize"));
-                try ptr.serialize(writer);
-            } else {
-                switch (ti.layout) {
-                    .auto, .@"extern" => {
-                        inline for (ti.fields) |f| {
-                            if (comptime shouldSerializeField(f)) {
-                                try serializeAny(f.type, &@field(ptr.*, f.name), writer);
-                            }
-                        }
-                    },
-                    .@"packed" => {
-                        try serializeAny(ti.backing_integer.?, @ptrCast(ptr), writer);
-                        // try writer.writeInt(ti.backing_integer.?, @bitCast(ptr.*), SERIAL_ENDIANNESS);
-                    },
-                }
-            }
-        },
-        .@"enum" => |ti| {
-            try writer.writeInt(ti.tag_type, @intFromEnum(ptr.*), SERIAL_ENDIANNESS);
-        },
-        .@"union" => |ti| {
-            if (ti.layout != .auto) {
-                @compileLog("Unsupported union layout", ti.layout);
-            }
-            const tagType = ti.tag_type orelse @compileLog("Unsupported untagged union");
-            const tag = std.meta.activeTag(ptr.*);
-            try serializeAny(tagType, &tag, writer);
-            switch (tag) {
-                inline else => |tagValue| {
-                    const PayloadType = @TypeOf(@field(ptr.*, @tagName(tagValue)));
-                    try serializeAny(PayloadType, &@field(ptr.*, @tagName(tagValue)), writer);
-                }
-            }
-        },
-        .optional => |ti| {
-            try writer.writeByte(if (ptr.* == null) 0 else 1);
-            if (ptr.*) |*v| {
-                try serializeAny(ti.child, v, writer);
-            }
-        },
-        else => {
-            @compileLog("Unsupported type", T);
-        },
-    }
-}
-
-fn deserializeAny(comptime T: type, reader: *std.io.Reader, ptr: *T) !void
-{
-    const typeInfo = @typeInfo(T);
-    switch (typeInfo) {
-        .void => {},
-        .bool => {
-            const byte = try reader.takeByte();
-            ptr.* = byte != 0;
-        },
-        .int => |ti| {
-            const IntType = getIntTypePad(ti.signedness, ti.bits);
-            const value = try reader.takeInt(IntType, SERIAL_ENDIANNESS);
-            ptr.* = @intCast(value);
-        },
-        .float => {
-            try reader.readSliceAll(std.mem.asBytes(ptr));
-        },
-        .vector => |ti| {
-            // TODO optimize bool Vector?
-            for (0..ti.len) |i| {
-                try deserializeAny(ti.child, reader, &ptr[i]);
-            }
-        },
-        .array => |ti| {
-            for (0..ti.len) |i| {
-                try deserializeAny(ti.child, reader, &ptr[i]);
-            }
-        },
-        .@"struct" => |ti| {
-            if (@hasDecl(T, "deserialize")) {
-                comptime std.debug.assert(@hasDecl(T, "serialize"));
-                try ptr.deserialize(reader);
-            } else {
-                switch (ti.layout) {
-                    .auto, .@"extern" => {
-                        inline for (ti.fields) |f| {
-                            if (comptime shouldSerializeField(f)) {
-                                try deserializeAny(f.type, reader, &@field(ptr.*, f.name));
-                            }
-                        }
-                    },
-                    .@"packed" => {
-                        const IntType = ti.backing_integer.?;
-                        var intValue: IntType = undefined;
-                        try deserializeAny(IntType, reader, &intValue);
-                        ptr.* = @bitCast(intValue);
-                    },
-                }
-            }
-        },
-        .@"enum" => |ti| {
-            ptr.* = @enumFromInt(try reader.takeInt(ti.tag_type, SERIAL_ENDIANNESS));
-        },
-        .@"union" => |ti| {
-            if (ti.layout != .auto) {
-                @compileLog("Unsupported union layout", ti.layout);
-            }
-            const tagType = ti.tag_type orelse @compileLog("Unsupported untagged union");
-            var tag: tagType = undefined;
-            try deserializeAny(tagType, reader, &tag);
-            switch (tag) {
-                inline else => |tagValue| {
-                    ptr.* = @unionInit(T, @tagName(tagValue), undefined);
-                    const PayloadType = @TypeOf(@field(ptr.*, @tagName(tagValue)));
-                    try deserializeAny(PayloadType, reader, &@field(ptr.*, @tagName(tagValue)));
-                }
-            }
-        },
-        .optional => |ti| {
-            const byte = try reader.takeByte();
-            if (byte == 0) {
-                ptr.* = null;
-            } else {
-                var v: ti.child = undefined;
-                try deserializeAny(ti.child, reader, &v);
-                ptr.* = v;
-            }
-        },
-        else => {
-            @compileLog("Unsupported type", T);
-        },
-    }
-}
-
-test "ser/de" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
-
-    const Test1 = struct {
-        a: u32,
-        b: f32,
-        c: u64,
-        d: bool,
-    };
-
-    const TYPES = .{
-        Test1,
-        PacketClient,
-        PacketServer,
-    };
-    inline for (TYPES) |T| {
-        var original: T = undefined;
-        @memset(std.mem.asBytes(&original), 0);
-
-        const bytes = try serializeCompressAny(T, &original, a);
-        var deserialized: T = undefined;
-        @memset(std.mem.asBytes(&deserialized), 0);
-        try deserializeDecompressAny(T, bytes, &deserialized, a);
-
-        try std.testing.expectEqualSlices(u8, std.mem.asBytes(&original), std.mem.asBytes(&deserialized));
-    }
+    try serde.deserializeAny(T, &reader, ptr);
 }
 
 const SentPacket = struct {
@@ -1084,5 +820,27 @@ pub fn netThreadServer(socket: *Socket, ns: *NetStateServer) void
                 }
             }
         }
+    }
+}
+
+test "zlib + ser/de" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    const TYPES = .{
+        PacketClient,
+        PacketServer,
+    };
+    inline for (TYPES) |T| {
+        var original: T = undefined;
+        @memset(std.mem.asBytes(&original), 0);
+
+        const bytes = try serializeCompressAny(T, &original, a);
+        var deserialized: T = undefined;
+        @memset(std.mem.asBytes(&deserialized), 0);
+        try deserializeDecompressAny(T, bytes, &deserialized, a);
+
+        try std.testing.expectEqualSlices(u8, std.mem.asBytes(&original), std.mem.asBytes(&deserialized));
     }
 }

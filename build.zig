@@ -50,30 +50,70 @@ pub fn build(b: *std.Build) !void
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const bearssl = b.dependency("bearssl", .{
-        .target = target,
-        .optimize = optimize,
-    });
+    const tracyEnabled = b.option(bool, "tracy", "Whether to enable Tracy") orelse false;
+
+    const bearssl = b.dependency("bearssl", .{});
+    const tracy = b.dependency("tracy", .{});
+
     const httpz = b.dependency("httpz", .{
         .target = target,
         .optimize = optimize,
     });
     const zigimg = b.dependency("zigimg", .{
         .target = target,
-        .optimize = optimize,
+        .optimize = .ReleaseFast,
     });
 
-    if (!target.result.cpu.arch.isWasm() and target.result.abi != .android) { // TODO
-        const zlibDep = b.dependency("zlib", .{
-            .target = .target,
-            .optimize = optimize,
+    _ = try b.modules.put(b.dupe("zigimg"), zigimg.module("zigimg"));
+
+    const moduleTracyImpl = b.createModule(.{
+        .root_source_file = b.path(if (tracyEnabled) "src/tracy/impl.zig" else "src/tracy/stub.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    if (tracyEnabled) {
+        const tracyClientLib = b.addLibrary(.{
+            .linkage = .static,
+            .name = "tracy_client",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
+        tracyClientLib.root_module.addCMacro("TRACY_ENABLE", "1");
+        tracyClientLib.addCSourceFile(.{.file = tracy.path("public/TracyClient.cpp"), .flags = &.{}});
+        tracyClientLib.linkLibCpp();
+        if (target.result.os.tag == .windows) {
+            tracyClientLib.linkSystemLibrary("ws2_32");
+            tracyClientLib.linkSystemLibrary("Dbghelp");
+        }
+        moduleTracyImpl.addIncludePath(tracy.path("public/tracy"));
+        moduleTracyImpl.linkLibrary(tracyClientLib);
+    }
+    const moduleTracy = b.addModule("zigkm-tracy", .{
+        .root_source_file = b.path("src/tracy/lib.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    moduleTracy.addImport("tracy_impl", moduleTracyImpl);
+
+    const module = b.addModule("zigkm", .{
+        .root_source_file = b.path("src/lib.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    module.addImport("zigimg", zigimg.module("zigimg"));
+    module.addImport("zigkm-tracy", moduleTracy);
+
+    if (!target.result.cpu.arch.isWasm() and target.result.abi != .android) {
+        // Stuff here requires lib C (and maybe makes other assumptions about the platform).
+        const zlibDep = b.dependency("zlib", .{});
         const zlib = b.addLibrary(.{
             .linkage = .static,
             .name = "zlib",
             .root_module = b.createModule(.{
                 .target = target,
-                .optimize = optimize,
+                .optimize = .ReleaseFast,
             }),
         });
         zlib.installHeadersDirectory(zlibDep.path("."), "", .{});
@@ -104,6 +144,8 @@ pub fn build(b: *std.Build) !void
         });
         zlib.linkLibC();
 
+        module.linkLibrary(zlib);
+
         const raylib = b.dependency("raylib", .{
             .linux_display_backend = .X11,
         });
@@ -116,29 +158,14 @@ pub fn build(b: *std.Build) !void
             .linux_display_backend = .X11,
         });
 
-        const module = b.addModule("zigkm", .{
-            .root_source_file = b.path("src/lib.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        module.linkLibrary(zlib);
-
         const moduleRl = b.addModule("zigkm-raylib", .{
-            .root_source_file = b.path("src/raylib.zig"),
+            .root_source_file = b.path("src/raylib/lib.zig"),
             .target = target,
             .optimize = optimize,
         });
         moduleRl.addImport("zigkm", module);
         moduleRl.addIncludePath(raylib.builder.path("src"));
         moduleRl.linkLibrary(rlLib);
-
-        const module2d = b.addModule("zigkm-2d", .{
-            .root_source_file = b.path("src/2d/lib.zig"),
-            .target = target,
-            .optimize = optimize,
-        });
-        module2d.addImport("zigkm", module);
-        module2d.addImport("zigimg", zigimg.module("zigimg"));
 
         const moduleConfigDummy = b.createModule(.{
             .root_source_file = b.path("src/config_dummy.zig"),
@@ -162,6 +189,18 @@ pub fn build(b: *std.Build) !void
         launcherExe.root_module.addImport("config", moduleConfigDummy);
         launcherExe.root_module.link_libc = true;
         b.installArtifact(launcherExe);
+
+        const assetpack = b.addExecutable(.{
+            .name = "assetpack",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("src/tools/assetpack.zig"),
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+        assetpack.root_module.addImport("zigkm", module);
+        assetpack.root_module.addImport("zigimg", zigimg.module("zigimg"));
+        b.installArtifact(assetpack);
     }
 
     // const testStep = b.step("test", "Test");
@@ -244,7 +283,7 @@ pub fn build(b: *std.Build) !void
     });
     stbLib.root_module.addIncludePath(stb.path(""));
     const stbModule = b.addModule("zigkm-stb", .{
-        .root_source_file = b.path("src/stb/stb.zig"),
+        .root_source_file = b.path("src/stb/lib.zig"),
     });
     stbModule.addIncludePath(stb.path(""));
     stbModule.linkLibrary(stbLib);
@@ -329,7 +368,6 @@ pub fn build(b: *std.Build) !void
     });
     _ = authModule;
 
-    // tools
     const genbigdata = b.addExecutable(.{
         .name = "genbigdata",
         .root_module = b.createModule(.{
@@ -358,7 +396,9 @@ pub fn build(b: *std.Build) !void
     const testSrcs = [_][]const u8 {
         "src/auth.zig",
         "src/math.zig",
+        "src/net.zig",
         "src/psd.zig",
+        "src/serde.zig",
         "src/serialize.zig",
         "src/app/bigdata.zig",
         "src/app/server_utils.zig",

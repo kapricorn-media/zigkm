@@ -101,20 +101,20 @@ fn deserializeMapValue(comptime T: type, data: []const u8, value: *T) !usize
     return 0;
 }
 
-fn serializeMapValue(writer: anytype, value: anytype) !void
+fn serializeMapValue(writer: *std.io.Writer, value: anytype) !void
 {
     var buf: [8]u8 = undefined;
 
     const T = @TypeOf(value);
     switch (@typeInfo(T)) {
-        .Int => {
+        .int => {
             const valueU64 = @as(u64, @intCast(value));
             std.mem.writeInt(u64, &buf, valueU64, .big);
             try writer.writeAll(&buf);
         },
-        .Pointer => |tiPtr| {
+        .pointer => |tiPtr| {
             switch (tiPtr.size) {
-                .Slice => {
+                .slice => {
                     if (comptime tiPtr.child != u8) {
                         @compileLog("Unsupported slice type", tiPtr.child);
                         unreachable;
@@ -129,7 +129,7 @@ fn serializeMapValue(writer: anytype, value: anytype) !void
                 },
             }
         },
-        .Array => |tiArray| {
+        .array => |tiArray| {
             switch (tiArray.child) {
                 u8 => {
                     try writer.writeAll(&value);
@@ -141,7 +141,7 @@ fn serializeMapValue(writer: anytype, value: anytype) !void
                 }
             }
         },
-        .Struct => |tiStruct| {
+        .@"struct" => |tiStruct| {
             inline for (tiStruct.fields) |f| {
                 try serializeMapValue(writer, @field(value, f.name));
             }
@@ -200,39 +200,38 @@ pub fn deserializeMap(
 
 pub fn serializeMap(comptime ValueType: type, map: std.StringHashMap(ValueType), a: A) ![]const u8
 {
-    var out = std.ArrayList(u8).init(a);
-    defer out.deinit();
-    var writer = out.writer();
+    var out = std.io.Writer.Allocating.init(a);
 
-    try writer.writeInt(u64, map.count(), .big);
+    try out.writer.writeInt(u64, map.count(), .big);
     var mapIt = map.iterator();
     while (mapIt.next()) |entry| {
-        try writer.writeAll(entry.key_ptr.*);
-        try writer.writeByte(0);
-        try writer.writeByteNTimes(0, 16); // filled later
+        try out.writer.writeAll(entry.key_ptr.*);
+        try out.writer.writeByte(0);
+        try out.writer.splatByteAll(0, 16); // filled later
     }
-    const endOfKeys = out.items.len;
+    const bytes = out.written();
+    // const endOfKeys = out.items.len;
 
     var buf: [8]u8 = undefined;
     mapIt = map.iterator();
     var i: usize = @sizeOf(u64); // skip initial map.count()
     while (mapIt.next()) |entry| {
-        const dataIndex = out.items.len;
-        try serializeMapValue(writer, entry.value_ptr.*);
-        const dataSize = out.items.len - dataIndex;
+        const dataIndex = bytes.len;
+        try serializeMapValue(&out.writer, entry.value_ptr.*);
+        const dataSize = bytes.len - dataIndex;
 
-        i = std.mem.indexOfScalarPos(u8, out.items, i, 0) orelse return error.BadData;
+        i = std.mem.indexOfScalarPos(u8, bytes, i, 0) orelse return error.BadData;
         i += 1;
-        if (i + 16 > out.items.len) {
+        if (i + 16 > bytes.len) {
             return error.BadData;
         }
 
         std.mem.writeInt(u64, &buf, dataIndex, .big);
-        @memcpy(out.items[i..i+8], &buf);
+        @memcpy(bytes[i..i+8], &buf);
         std.mem.writeInt(u64, &buf, dataSize, .big);
-        @memcpy(out.items[i+8..i+16], &buf);
+        @memcpy(bytes[i+8..i+16], &buf);
         i += 16;
-        if (i > endOfKeys) {
+        if (i > bytes.len) {
             return error.BadData;
         }
     }
@@ -361,7 +360,7 @@ pub const Data = struct {
         const pathDupe = try selfAllocator.dupe(u8, path);
 
         sourceEntry.children.len = 1;
-        sourceEntry.children.set(0, pathDupe);
+        sourceEntry.children.buffer[0] = pathDupe;
         try self.map.put(pathDupe, try selfAllocator.dupe(u8, data));
 
         try self.sourceMap.put(pathDupe, sourceEntry);

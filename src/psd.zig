@@ -1,8 +1,9 @@
 const std = @import("std");
 const A = std.mem.Allocator;
 
-const m = @import("zigkm").math;
 const zigimg = @import("zigimg");
+
+const m = @import("math.zig");
 
 pub const ImageDataFormat = enum(u8) {
     Raw       = 0,

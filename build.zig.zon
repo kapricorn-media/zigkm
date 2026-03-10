@@ -33,8 +33,8 @@
             .hash = "N-V-__8AADAbbwDkOtWI9x-qrMu4ZqJxHfupa4DTE0st_Qo-",
         },
         .tracy = .{
-            .url = "https://github.com/wolfpld/tracy/archive/c556831ddc6fe26d2fce01c14c97205a9dad46d5.tar.gz",
-            .hash = "N-V-__8AANptPwE8EYOS5w6KRzVyfllpOBthYRcuuQvYhhxb",
+            .url = "https://github.com/wolfpld/tracy/archive/05cceee0df3b8d7c6fa87e9638af311dbabc63cb.tar.gz",
+            .hash = "N-V-__8AAOncKwEm1F9c5LrT7HMNmRMYX8-fAoqpc6YyTu9X",
         },
     },
     .paths = .{
