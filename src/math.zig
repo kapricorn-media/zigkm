@@ -220,7 +220,7 @@ pub fn normalizeOrZero(comptime N: comptime_int, v: @Vector(N, f32)) @Vector(N, 
         return v;
     }
     const m = mag(N, v);
-    return v / @as(@Vector(N, f32), @splat(m));
+    return v / splat(N, m);
 }
 
 // Return the projection of vector v1 onto v2.
@@ -401,27 +401,84 @@ pub fn rayCircleIntersection(rayOrigin: V2, rayDir: V2, circlePos: V2, circleRad
     }
 }
 
-pub fn lineLineIntersection(a1: V2, a2: V2, b1: V2, b2: V2, outIntersection: *V2) bool
+pub fn lineCircleHit(p1: V2, p2: V2, center: V2, radius: f32) HitInfo
+{
+    const lineLength = mag(2, p2 - p1);
+    if (lineLength == 0) {
+        return .noHit();
+    }
+
+    const dir = (p2 - p1) / splat(2, lineLength);
+    var t1: f32 = undefined;
+    var t2: f32 = undefined;
+    if (rayCircleIntersection(p1, dir, center, radius, &t1, &t2)) {
+        var maybeT: ?f32 = null;
+        if (0 <= t1 and t1 <= lineLength) {
+            maybeT = t1;
+        }
+        if (0 <= t2 and t2 <= lineLength) {
+            maybeT = t2;
+        }
+        if (maybeT) |t| {
+            const pos = p1 * splat(2, t);
+            return .{
+                .hit = true,
+                .t = t,
+                .pos = pos,
+                .normal = normalizeOrZero(2, pos - center),
+            };
+        }
+    }
+
+    return .noHit();
+}
+
+pub fn lineLineIntersection(a1: V2, a2: V2, b1: V2, b2: V2, outT: *f32, outIntersection: *V2) bool
 {
     outIntersection.* = .{0, 0};
     const b = a2 - a1;
     const d = b2 - b1;
     const bdCross = cross2(b, d);
     if (bdCross == 0) {
-        // Lines are parallel, infinite intersections. We consider this no intersection.
+        // Lines are parallel. This *could* be an infinite intersection, but we consider it no intersection.
         return false;
     }
 
     const c = b1 - a1;
-    const t = cross2(c, d) / bdCross;
-    if (t < 0 or t > 1) return false;
+    outT.* = cross2(c, d) / bdCross;
+    if (outT.* < 0 or outT.* > 1) return false;
 
     const u = cross2(c, b) / bdCross;
     if (u < 0 or u > 1) return false;
 
-    outIntersection.* = a1 + @as(V2, @splat(t)) * b;
-
+    outIntersection.* = a1 + @as(V2, @splat(outT.*)) * b;
     return true;
+}
+
+pub fn lineLineHit(a1: V2, a2: V2, b1: V2, b2: V2) HitInfo
+{
+    const b = a2 - a1;
+    const d = b2 - b1;
+    const bdCross = cross2(b, d);
+    if (bdCross == 0) {
+        // Lines are parallel. This *could* be an infinite intersection, but we consider it no intersection.
+        return .noHit();
+    }
+
+    const c = b1 - a1;
+    const t = cross2(c, d) / bdCross;
+    if (t < 0 or t > 1) return .noHit();
+
+    const u = cross2(c, b) / bdCross;
+    if (u < 0 or u > 1) return .noHit();
+
+    const bDir = normalizeOrZero(2, b2 - b1);
+    return .{
+        .hit = true,
+        .t = t,
+        .pos = a1 + @as(V2, @splat(t)) * b,
+        .normal = if (bdCross > 0) .{-bDir[1], bDir[0]} else .{bDir[1], -bDir[0]},
+    };
 }
 
 const CODE_X_UNDER : u4 = 0b0001;
@@ -464,6 +521,126 @@ pub fn lineRectIntersection(a1: V2, a2: V2, rect: Rect) bool
         const out3 = lineLineIntersection(a1, a2, r3, rect.max, &int);
         const out4 = lineLineIntersection(a1, a2, r4, rect.max, &int);
         return out1 or out2 or out3 or out4;
+    }
+}
+
+pub fn lineRectHit(p1: V2, p2: V2, rect: Rect) HitInfo
+{
+    const p1Code = cohenSutherlandOutcode(p1, rect);
+    const p2Code = cohenSutherlandOutcode(p2, rect);
+    if ((p1Code | p2Code) == 0) {
+        // Both inside.
+        return .noHit();
+    } else if ((p1Code & p2Code) != 0) {
+        // No intersection is possible.
+        return .noHit();
+    } else {
+        const r3 = V2 {rect.min[0], rect.max[1]};
+        const r4 = V2 {rect.max[0], rect.min[1]};
+
+        const hit1 = lineLineHit(p1, p2, rect.min, r3);
+        if (hit1.hit) return hit1;
+        const hit2 = lineLineHit(p1, p2, rect.min, r4);
+        if (hit2.hit) return hit2;
+        const hit3 = lineLineHit(p1, p2, r3, rect.max);
+        if (hit3.hit) return hit3;
+        const hit4 = lineLineHit(p1, p2, r4, rect.max);
+        if (hit4.hit) return hit4;
+    }
+
+    return .noHit();
+}
+
+// TODO maybe all intersections should use HitInfo?
+pub const HitInfo = struct {
+    hit: bool,
+    t: f32,
+    pos: V2,
+    normal: V2,
+
+    pub fn noHit() HitInfo
+    {
+        return .{
+            .hit = false,
+            .t = std.math.floatMax(f32),
+            .pos = .{0, 0},
+            .normal = .{0, 0},
+        };
+    }
+};
+
+pub fn linePolygonHit(p1: V2, p2: V2, polygon: []const V2) HitInfo
+{
+    var hit = HitInfo {
+        .hit = false,
+        .t = std.math.floatMax(f32),
+        .pos = .{0, 0},
+        .normal = .{0, 0},
+    };
+    if (polygon.len == 0) {
+        return hit;
+    }
+
+    for (0..polygon.len) |i| {
+        const indPrev = if (i == 0) polygon.len - 1 else i - 1;
+        const poly1 = polygon[indPrev];
+        const poly2 = polygon[i];
+        var t: f32 = undefined;
+        var int: V2 = undefined;
+        if (lineLineIntersection(p1, p2, poly1, poly2, &t, &int)) {
+            if (t < hit.t) {
+                const lineVec = poly2 - poly1;
+                const d = normalizeOrZero(2, lineVec);
+                const cross = cross2(lineVec, p1 - poly1);
+                var normal: V2 = undefined;
+                if (cross > 0) {
+                    normal = .{-d[1], d[0]};
+                } else {
+                    normal = .{d[1], -d[0]};
+                }
+                hit = .{
+                    .hit = true,
+                    .t = t,
+                    .pos = int,
+                    .normal = normal,
+                };
+            }
+        }
+    }
+
+    return hit;
+}
+
+pub fn collideAndSlide(p: V2, delta: V2, context: anytype, comptime collideFn: fn(@TypeOf(context), p: V2, delta: V2) HitInfo) V2
+{
+    return collideAndSlideRecursive(p, delta, 0, context, collideFn);
+}
+
+fn collideAndSlideRecursive(p: V2, delta: V2, bounce: u32, context: anytype, comptime collideFn: fn(@TypeOf(context), p: V2, delta: V2) HitInfo) V2
+{
+    const maxBounces = 4;
+    const skinWidth = 0.01;
+    if (bounce >= maxBounces) {
+        return .{0, 0};
+    }
+
+    const closestHit = collideFn(context, p, delta);
+    if (closestHit.hit) {
+        // blocked.* = true;
+        // const deltaMag = mag(2, delta);
+        // if (deltaMag == 0) return delta;
+        // const deltaDir = delta / @as(V2, @splat(deltaMag));
+
+        const t = @max(closestHit.t - skinWidth, 0);
+        const toHit = delta * @as(V2, @splat(t));
+        const remaining = delta - toHit;
+        const remainingMag = mag(2, remaining);
+        const hitTangent: V2 = .{-closestHit.normal[1], closestHit.normal[0]};
+        var remainingSnapped = normalizeOrZero(2, project(2, remaining, hitTangent));
+        remainingSnapped *= @splat(remainingMag);
+        return toHit + collideAndSlideRecursive(p + toHit, remainingSnapped, bounce + 1, context, collideFn);
+    } else {
+        return delta;
     }
 }
 

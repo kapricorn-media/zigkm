@@ -115,7 +115,7 @@ pub const Socket = struct {
         packetSize.* = n;
         var headerReader = std.io.Reader.fixed(self.receiveBuffer[0..4]);
         var fragHeader: FragHeader = undefined;
-        serde.deserializeAny(FragHeader, &headerReader, &fragHeader) catch {
+        serde.deserializeAny(FragHeader, a, &headerReader, &fragHeader) catch {
             std.log.err("FragHeader deserialize failed", .{});
             return null;
         };
@@ -240,9 +240,10 @@ pub const Socket = struct {
 
 fn serializeCompressAny(comptime T: type, ptr: *const T, a: A) ![]const u8
 {
+    const compressionLevel = 9;
     var bytesRaw = std.io.Writer.Allocating.init(a);
     try serde.serializeAny(T, ptr, &bytesRaw.writer);
-    return zlib.deflateOneShot(bytesRaw.written(), a);
+    return zlib.deflateOneShot(a, compressionLevel, bytesRaw.written());
 }
 
 fn deserializeDecompressAny(comptime T: type, bytes: []const u8, ptr: *T, a: A) !void
@@ -250,7 +251,7 @@ fn deserializeDecompressAny(comptime T: type, bytes: []const u8, ptr: *T, a: A) 
     const outBuf = try a.alloc(u8, 8 * 1024 * 1024);
     const rawBytes = try zlib.inflateOneShot(bytes, outBuf);
     var reader = std.io.Reader.fixed(rawBytes);
-    try serde.deserializeAny(T, &reader, ptr);
+    try serde.deserializeAny(T, a, &reader, ptr);
 }
 
 const SentPacket = struct {
