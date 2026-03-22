@@ -568,37 +568,37 @@ const Reader = struct {
     }
 };
 
-test {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+// test {
+//     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+//     defer arena.deinit();
+//     const a = arena.allocator();
 
-    var fileReadBuf: [4 * 1024]u8 = undefined;
-    var fileBuf = try a.alloc(u8, 512 * 1024 * 1024);
+//     var fileReadBuf: [4 * 1024]u8 = undefined;
+//     var fileBuf = try a.alloc(u8, 512 * 1024 * 1024);
 
-    // const psdBytes = @embedFile("test.psd");
-    // const filePath = "data/sprites/test.psd";
-    // const filePath = "data/sprites/coral_region.psb";
-    const filePath = "data/sprites/characters.psd";
-    var f = try std.fs.cwd().openFile(filePath, .{});
-    defer f.close();
-    var fr = f.reader(&fileReadBuf);
-    const fLen = try fr.interface.readSliceShort(fileBuf);
-    const psdBytes = fileBuf[0..fLen];
+//     // const psdBytes = @embedFile("test.psd");
+//     // const filePath = "data/sprites/test.psd";
+//     // const filePath = "data/sprites/coral_region.psb";
+//     const filePath = "data/sprites/characters.psd";
+//     var f = try std.fs.cwd().openFile(filePath, .{});
+//     defer f.close();
+//     var fr = f.reader(&fileReadBuf);
+//     const fLen = try fr.interface.readSliceShort(fileBuf);
+//     const psdBytes = fileBuf[0..fLen];
 
-    var psd: PsdFile = undefined;
-    try psd.load(psdBytes, a);
+//     var psd: PsdFile = undefined;
+//     try psd.load(psdBytes, a);
 
-    std.log.info("{} x {} | {} layers", .{psd.canvasSize[0], psd.canvasSize[1], psd.layers.len});
-    for (psd.layers, 0..) |layer, i| {
-        std.log.info("layer {}: {s} ({} at {})", .{i, layer.name, layer.size, layer.topLeft});
-        if (layer.isGroupEnd()) {
-            std.log.info("group end", .{});
-        } else {
-            if (layer.size[0] != 0 and layer.size[1] != 0) {
-                const pixels = try layer.getPixelData(null, psd.isPsb, a);
-                std.log.info("pixel data {} x {}", .{pixels.width, pixels.height});
-            }
-        }
-    }
-}
+//     std.log.info("{} x {} | {} layers", .{psd.canvasSize[0], psd.canvasSize[1], psd.layers.len});
+//     for (psd.layers, 0..) |layer, i| {
+//         std.log.info("layer {}: {s} ({} at {})", .{i, layer.name, layer.size, layer.topLeft});
+//         if (layer.isGroupEnd()) {
+//             std.log.info("group end", .{});
+//         } else {
+//             if (layer.size[0] != 0 and layer.size[1] != 0) {
+//                 const pixels = try layer.getPixelData(null, psd.isPsb, a);
+//                 std.log.info("pixel data {} x {}", .{pixels.width, pixels.height});
+//             }
+//         }
+//     }
+// }

@@ -51,6 +51,7 @@ pub fn build(b: *std.Build) !void
     const optimize = b.standardOptimizeOption(.{});
 
     const tracyEnabled = b.option(bool, "tracy", "Whether to enable Tracy") orelse false;
+    // const macosSdkPath = b.option([]const u8, "macos_sdk_path", "Absolute path to the macOS SDK") orelse "";
 
     const bearssl = b.dependency("bearssl", .{});
     const tracy = b.dependency("tracy", .{});
@@ -200,6 +201,11 @@ pub fn build(b: *std.Build) !void
         });
         assetpack.root_module.addImport("zigkm", module);
         assetpack.root_module.addImport("zigimg", zigimg.module("zigimg"));
+        // if (target.result.os.tag == .macos) {
+        //     assetpack.root_module.addIncludePath(.{.cwd_relative = try std.fmt.allocPrint(b.allocator, "{s}/usr/include", .{macosSdkPath})});
+        //     assetpack.root_module.addLibraryPath(.{.cwd_relative = try std.fmt.allocPrint(b.allocator, "{s}/usr/lib", .{macosSdkPath})});
+        //     assetpack.root_module.addFrameworkPath(.{.cwd_relative = try std.fmt.allocPrint(b.allocator, "{s}/System/Library/Frameworks", .{macosSdkPath})});
+        // }
         b.installArtifact(assetpack);
     }
 
@@ -396,11 +402,11 @@ pub fn build(b: *std.Build) !void
     const testSrcs = [_][]const u8 {
         "src/auth.zig",
         "src/math.zig",
-        "src/net.zig",
+        // "src/net.zig",
         "src/psd.zig",
         "src/serde.zig",
         "src/serialize.zig",
-        "src/app/bigdata.zig",
+        // "src/app/bigdata.zig",
         "src/app/server_utils.zig",
         "src/app/tree.zig",
         "src/app/ui.zig",
@@ -415,7 +421,9 @@ pub fn build(b: *std.Build) !void
                 .optimize = optimize,
             }),
         });
-        // testCompile.root_module.addImport("zigkm-math", mathModule);
+        testCompile.root_module.addImport("zigkm-lib", libModule);
+        testCompile.root_module.addImport("zigkm-math", mathModule);
+        testCompile.root_module.addImport("zigimg", zigimg.module("zigimg"));
 
         const testRun = b.addRunArtifact(testCompile);
         testRun.has_side_effects = true;

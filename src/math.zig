@@ -420,7 +420,7 @@ pub fn lineCircleHit(p1: V2, p2: V2, center: V2, radius: f32) HitInfo
             maybeT = t2;
         }
         if (maybeT) |t| {
-            const pos = p1 * splat(2, t);
+            const pos = p1 + dir * splat(2, t);
             return .{
                 .hit = true,
                 .t = t,
@@ -515,11 +515,12 @@ pub fn lineRectIntersection(a1: V2, a2: V2, rect: Rect) bool
     } else {
         const r3 = V2 {rect.min[0], rect.max[1]};
         const r4 = V2 {rect.max[0], rect.min[1]};
+        var t: f32 = undefined;
         var int: V2 = undefined;
-        const out1 = lineLineIntersection(a1, a2, rect.min, r3, &int);
-        const out2 = lineLineIntersection(a1, a2, rect.min, r4, &int);
-        const out3 = lineLineIntersection(a1, a2, r3, rect.max, &int);
-        const out4 = lineLineIntersection(a1, a2, r4, rect.max, &int);
+        const out1 = lineLineIntersection(a1, a2, rect.min, r3, &t, &int);
+        const out2 = lineLineIntersection(a1, a2, rect.min, r4, &t, &int);
+        const out3 = lineLineIntersection(a1, a2, r3, rect.max, &t, &int);
+        const out4 = lineLineIntersection(a1, a2, r4, rect.max, &t, &int);
         return out1 or out2 or out3 or out4;
     }
 }
@@ -611,16 +612,19 @@ pub fn linePolygonHit(p1: V2, p2: V2, polygon: []const V2) HitInfo
     return hit;
 }
 
-pub fn collideAndSlide(p: V2, delta: V2, context: anytype, comptime collideFn: fn(@TypeOf(context), p: V2, delta: V2) HitInfo) V2
+pub const CollideAndSlideParams = struct {
+    maxBounces: u8,
+    skinWidth: f32
+};
+
+pub fn collideAndSlide(p: V2, delta: V2, params: CollideAndSlideParams, context: anytype, comptime collideFn: fn(@TypeOf(context), p: V2, delta: V2) HitInfo) V2
 {
-    return collideAndSlideRecursive(p, delta, 0, context, collideFn);
+    return collideAndSlideRecursive(p, delta, params, 0, context, collideFn);
 }
 
-fn collideAndSlideRecursive(p: V2, delta: V2, bounce: u32, context: anytype, comptime collideFn: fn(@TypeOf(context), p: V2, delta: V2) HitInfo) V2
+fn collideAndSlideRecursive(p: V2, delta: V2, params: CollideAndSlideParams, bounce: u32, context: anytype, comptime collideFn: fn(@TypeOf(context), p: V2, delta: V2) HitInfo) V2
 {
-    const maxBounces = 4;
-    const skinWidth = 0.01;
-    if (bounce >= maxBounces) {
+    if (bounce >= params.maxBounces) {
         return .{0, 0};
     }
 
@@ -631,14 +635,14 @@ fn collideAndSlideRecursive(p: V2, delta: V2, bounce: u32, context: anytype, com
         // if (deltaMag == 0) return delta;
         // const deltaDir = delta / @as(V2, @splat(deltaMag));
 
-        const t = @max(closestHit.t - skinWidth, 0);
+        const t = @max(closestHit.t - params.skinWidth, 0);
         const toHit = delta * @as(V2, @splat(t));
         const remaining = delta - toHit;
         const remainingMag = mag(2, remaining);
         const hitTangent: V2 = .{-closestHit.normal[1], closestHit.normal[0]};
         var remainingSnapped = normalizeOrZero(2, project(2, remaining, hitTangent));
         remainingSnapped *= @splat(remainingMag);
-        return toHit + collideAndSlideRecursive(p + toHit, remainingSnapped, bounce + 1, context, collideFn);
+        return toHit + collideAndSlideRecursive(p + toHit, remainingSnapped, params, bounce + 1, context, collideFn);
     } else {
         return delta;
     }
@@ -677,8 +681,9 @@ test "line line intersection"
         },
     };
     for (CASES) |c| {
+        var t: f32 = undefined;
         var int: V2 = undefined;
-        const out = lineLineIntersection(c.a1, c.a2, c.b1, c.b2, &int);
+        const out = lineLineIntersection(c.a1, c.a2, c.b1, c.b2, &t, &int);
         if (out != c.intersect) {
             std.log.err("{}", .{c});
             return error.Mismatch;
@@ -776,6 +781,52 @@ test "line rect intersection"
         if (out != c.expectedOut) {
             std.log.err("{}: {}", .{i, c});
             return error.Mismatch;
+        }
+    }
+}
+
+test "ray-circle" {
+    const TestCase = struct {
+        p1: V2,
+        p2: V2,
+        center: V2,
+        radius: f32,
+        expectedHit: HitInfo,
+    };
+
+    const cases = [_]TestCase {
+        .{
+            .p1 = .{0, 0},
+            .p2 = .{0, 0},
+            .center = .{0, 0},
+            .radius = 0,
+            .expectedHit = .{
+                .hit = false,
+                .t = undefined,
+                .pos = undefined,
+                .normal = undefined,
+            },
+        },
+        .{
+            .p1 = .{0, 0},
+            .p2 = .{1, 0},
+            .center = .{1, 0},
+            .radius = 0.5,
+            .expectedHit = .{
+                .hit = true,
+                .t = 0.5,
+                .pos = .{0.5, 0},
+                .normal = .{-1, 0},
+            },
+        },
+    };
+
+    for (cases) |case| {
+        const hit = lineCircleHit(case.p1, case.p2, case.center, case.radius);
+        if (case.expectedHit.hit) {
+            try std.testing.expectEqual(case.expectedHit, hit);
+        } else {
+            try std.testing.expectEqual(false, hit.hit);
         }
     }
 }

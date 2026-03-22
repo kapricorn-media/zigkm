@@ -465,7 +465,7 @@ const TestSetup = struct {
         var inputState = try allocator.create(input.InputState);
         inputState.clear();
 
-        uiState.prepare(inputState, m.V2.zero, 0, allocator);
+        uiState.prepare(inputState, m.zero(2), 0, allocator);
 
         return .{
             .arena = arena,

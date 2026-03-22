@@ -35,7 +35,7 @@ pub fn TreeIterator(comptime T: type) type
 
         pub fn deinit(self: *Self) void
         {
-            self.stack.deinit();
+            self.stack.deinit(self.a);
         }
 
         pub fn prepare(self: *Self, root: *T, mode: Mode) OOM!void

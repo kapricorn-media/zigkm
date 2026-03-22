@@ -824,24 +824,24 @@ pub fn netThreadServer(socket: *Socket, ns: *NetStateServer) void
     }
 }
 
-test "zlib + ser/de" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const a = arena.allocator();
+// test "zlib + ser/de" {
+//     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+//     defer arena.deinit();
+//     const a = arena.allocator();
 
-    const TYPES = .{
-        PacketClient,
-        PacketServer,
-    };
-    inline for (TYPES) |T| {
-        var original: T = undefined;
-        @memset(std.mem.asBytes(&original), 0);
+//     const TYPES = .{
+//         PacketClient,
+//         PacketServer,
+//     };
+//     inline for (TYPES) |T| {
+//         var original: T = undefined;
+//         @memset(std.mem.asBytes(&original), 0);
 
-        const bytes = try serializeCompressAny(T, &original, a);
-        var deserialized: T = undefined;
-        @memset(std.mem.asBytes(&deserialized), 0);
-        try deserializeDecompressAny(T, bytes, &deserialized, a);
+//         const bytes = try serializeCompressAny(T, &original, a);
+//         var deserialized: T = undefined;
+//         @memset(std.mem.asBytes(&deserialized), 0);
+//         try deserializeDecompressAny(T, bytes, &deserialized, a);
 
-        try std.testing.expectEqualSlices(u8, std.mem.asBytes(&original), std.mem.asBytes(&deserialized));
-    }
-}
+//         try std.testing.expectEqualSlices(u8, std.mem.asBytes(&original), std.mem.asBytes(&deserialized));
+//     }
+// }

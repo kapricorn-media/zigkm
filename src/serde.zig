@@ -232,7 +232,7 @@ test "ser/de" {
     };
 
     const Test2 = struct {
-        a: union(enum) {
+        a: union(enum(u8)) {
             enum1: void,
             enum2: bool,
             enum3: f32,
@@ -242,7 +242,7 @@ test "ser/de" {
             },
         },
         b: f32,
-        c: enum {
+        c: enum(u16) {
             test1,
             test2,
         },
@@ -256,10 +256,13 @@ test "ser/de" {
         var original: T = undefined;
         @memset(std.mem.asBytes(&original), 0);
 
-        const bytes = try serializeAny(T, &original, a);
+        var writer = std.io.Writer.Allocating.init(a);
+        try serializeAny(T, &original, &writer.writer);
+
+        var reader = std.io.Reader.fixed(writer.written());
         var deserialized: T = undefined;
         @memset(std.mem.asBytes(&deserialized), 0);
-        try deserializeAny(T, a, bytes, &deserialized, a); // NOPE, bytes should be a reader
+        try deserializeAny(T, a, &reader, &deserialized);
 
         try std.testing.expectEqualSlices(u8, std.mem.asBytes(&original), std.mem.asBytes(&deserialized));
     }
