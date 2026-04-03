@@ -56,14 +56,17 @@ pub fn serializeAny(comptime T: type, ptr: *const T, writer: *std.io.Writer) std
             if (ti.layout != .auto) {
                 @compileLog("Unsupported union layout", ti.layout);
             }
-            const tagType = ti.tag_type orelse @compileLog("Unsupported untagged union");
-            const tag = std.meta.activeTag(ptr.*);
-            try serializeAny(tagType, &tag, writer);
-            switch (tag) {
-                inline else => |tagValue| {
-                    const PayloadType = @TypeOf(@field(ptr.*, @tagName(tagValue)));
-                    try serializeAny(PayloadType, &@field(ptr.*, @tagName(tagValue)), writer);
+            if (ti.tag_type) |TagType| {
+                const tag = std.meta.activeTag(ptr.*);
+                try serializeAny(TagType, &tag, writer);
+                switch (tag) {
+                    inline else => |tagValue| {
+                        const PayloadType = @TypeOf(@field(ptr.*, @tagName(tagValue)));
+                        try serializeAny(PayloadType, &@field(ptr.*, @tagName(tagValue)), writer);
+                    }
                 }
+            } else {
+                try writer.writeAll(std.mem.asBytes(ptr));
             }
         },
         .optional => |ti| {
@@ -151,15 +154,18 @@ pub fn deserializeAny(comptime T: type, a: A, reader: *std.io.Reader, ptr: *T) (
             if (ti.layout != .auto) {
                 @compileLog("Unsupported union layout", ti.layout);
             }
-            const tagType = ti.tag_type orelse @compileLog("Unsupported untagged union");
-            var tag: tagType = undefined;
-            try deserializeAny(tagType, a, reader, &tag);
-            switch (tag) {
-                inline else => |tagValue| {
-                    ptr.* = @unionInit(T, @tagName(tagValue), undefined);
-                    const PayloadType = @TypeOf(@field(ptr.*, @tagName(tagValue)));
-                    try deserializeAny(PayloadType, a, reader, &@field(ptr.*, @tagName(tagValue)));
+            if (ti.tag_type) |TagType| {
+                var tag: TagType = undefined;
+                try deserializeAny(TagType, a, reader, &tag);
+                switch (tag) {
+                    inline else => |tagValue| {
+                        ptr.* = @unionInit(T, @tagName(tagValue), undefined);
+                        const PayloadType = @TypeOf(@field(ptr.*, @tagName(tagValue)));
+                        try deserializeAny(PayloadType, a, reader, &@field(ptr.*, @tagName(tagValue)));
+                    }
                 }
+            } else {
+                try reader.readSliceAll(std.mem.asBytes(ptr));
             }
         },
         .optional => |ti| {

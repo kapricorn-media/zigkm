@@ -380,9 +380,9 @@ pub fn calculateParabolaVelFromSpeed(start: V3, endXZ: V2, speedXZ: f32, g: f32)
     return calculateParabolaVelFromTime(start, endXZ, time, g);
 }
 
-pub fn rayCircleIntersection(rayOrigin: V2, rayDir: V2, circlePos: V2, circleRadius: f32, outT1: *f32, outT2: *f32) bool
+pub fn rayCircleIntersection(rayOrigin: V2, rayDir: V2, center: V2, circleRadius: f32, outT1: *f32, outT2: *f32) bool
 {
-    const rayToCircle = circlePos - rayOrigin;
+    const rayToCircle = center - rayOrigin;
     const rayToClosest = project(2, rayToCircle, rayDir);
     const closestToCircle = rayToCircle - rayToClosest;
     const distToCircle = mag(2, closestToCircle);
@@ -398,6 +398,107 @@ pub fn rayCircleIntersection(rayOrigin: V2, rayDir: V2, circlePos: V2, circleRad
         outT1.* = tBase - mm;
         outT2.* = tBase + mm;
         return true;
+    }
+}
+
+// Unlike the lower level rayCircleIntersection, this only returns the closest hit in the direction of the ray.
+// This includes intersections where the ray is inside the circle.
+pub fn rayCircleHit(rayOrigin: V2, rayDir: V2, center: V2, radius: f32) HitInfo
+{
+    var t1: f32 = undefined;
+    var t2: f32 = undefined;
+    if (rayCircleIntersection(rayOrigin, rayDir, center, radius, &t1, &t2)) {
+        const t = if (t1 >= 0) t1 else if (t2 >= 0) t2 else return .noHit();
+        const hitPos = rayOrigin + rayDir * splat(2, t);
+        return .{
+            .hit = true,
+            .t = t,
+            .pos = hitPos,
+            .normal = normalizeOrZero(2, hitPos - center),
+        };
+    } else {
+        return .noHit();
+    }
+}
+
+test "rayCircleIntersection" {
+    const TestCase = struct {
+        rayOrigin: V2,
+        rayDir: V2,
+        center: V2,
+        radius: f32,
+        hit: bool,
+        t1: f32 = 0,
+        t2: f32 = 0,
+    };
+
+    const cases = [_]TestCase {
+        .{
+            .rayOrigin = .{0, 0},
+            .rayDir = .{1, 0},
+            .center = .{3, 0},
+            .radius = 1,
+            .hit = true,
+            .t1 = 2, // t1 is the first intersection, going in the direction of the ray
+            .t2 = 4,
+        },
+        .{
+            // ray and circle flipped, same t1+t2
+            .rayOrigin = .{0, 0},
+            .rayDir = .{-1, 0},
+            .center = .{-3, 0},
+            .radius = 1,
+            .hit = true,
+            .t1 = 2,
+            .t2 = 4,
+        },
+        .{
+            // vertical, same t1+t2
+            .rayOrigin = .{0, 0},
+            .rayDir = .{0, 1},
+            .center = .{0, 3},
+            .radius = 1,
+            .hit = true,
+            .t1 = 2,
+            .t2 = 4,
+        },
+        .{
+            // only circle is flipped, so t1+t2 are negative
+            .rayOrigin = .{0, 0},
+            .rayDir = .{1, 0},
+            .center = .{-3, 0},
+            .radius = 1,
+            .hit = true,
+            .t1 = -4,
+            .t2 = -2,
+        },
+        .{
+            .rayOrigin = .{0, 0},
+            .rayDir = .{1, 0},
+            .center = .{0, 0},
+            .radius = 1,
+            .hit = true,
+            .t1 = -1, // "first" intersection is negative (backwards) because the ray is inside the circle
+            .t2 = 1,
+        },
+        .{
+            .rayOrigin = .{0, 0},
+            .rayDir = .{1, 0},
+            .center = .{3, 3},
+            .radius = 1,
+            .hit = false,
+        },
+    };
+
+    for (cases) |case| {
+        var t1: f32 = undefined;
+        var t2: f32 = undefined;
+        const hit = rayCircleIntersection(case.rayOrigin, case.rayDir, case.center, case.radius, &t1, &t2);
+        try std.testing.expectEqual(case.hit, hit);
+        if (case.hit) {
+            try std.testing.expectEqual(case.t1, t1);
+            try std.testing.expectEqual(case.t2, t2);
+        }
     }
 }
 
@@ -431,6 +532,52 @@ pub fn lineCircleHit(p1: V2, p2: V2, center: V2, radius: f32) HitInfo
     }
 
     return .noHit();
+}
+
+test "lineCircleHit" {
+    const TestCase = struct {
+        p1: V2,
+        p2: V2,
+        center: V2,
+        radius: f32,
+        expectedHit: HitInfo,
+    };
+
+    const cases = [_]TestCase {
+        .{
+            .p1 = .{0, 0},
+            .p2 = .{0, 0},
+            .center = .{0, 0},
+            .radius = 0,
+            .expectedHit = .{
+                .hit = false,
+                .t = undefined,
+                .pos = undefined,
+                .normal = undefined,
+            },
+        },
+        .{
+            .p1 = .{0, 0},
+            .p2 = .{1, 0},
+            .center = .{1, 0},
+            .radius = 0.5,
+            .expectedHit = .{
+                .hit = true,
+                .t = 0.5,
+                .pos = .{0.5, 0},
+                .normal = .{-1, 0},
+            },
+        },
+    };
+
+    for (cases) |case| {
+        const hit = lineCircleHit(case.p1, case.p2, case.center, case.radius);
+        if (case.expectedHit.hit) {
+            try std.testing.expectEqual(case.expectedHit, hit);
+        } else {
+            try std.testing.expectEqual(false, hit.hit);
+        }
+    }
 }
 
 pub fn lineLineIntersection(a1: V2, a2: V2, b1: V2, b2: V2, outT: *f32, outIntersection: *V2) bool
@@ -781,52 +928,6 @@ test "line rect intersection"
         if (out != c.expectedOut) {
             std.log.err("{}: {}", .{i, c});
             return error.Mismatch;
-        }
-    }
-}
-
-test "ray-circle" {
-    const TestCase = struct {
-        p1: V2,
-        p2: V2,
-        center: V2,
-        radius: f32,
-        expectedHit: HitInfo,
-    };
-
-    const cases = [_]TestCase {
-        .{
-            .p1 = .{0, 0},
-            .p2 = .{0, 0},
-            .center = .{0, 0},
-            .radius = 0,
-            .expectedHit = .{
-                .hit = false,
-                .t = undefined,
-                .pos = undefined,
-                .normal = undefined,
-            },
-        },
-        .{
-            .p1 = .{0, 0},
-            .p2 = .{1, 0},
-            .center = .{1, 0},
-            .radius = 0.5,
-            .expectedHit = .{
-                .hit = true,
-                .t = 0.5,
-                .pos = .{0.5, 0},
-                .normal = .{-1, 0},
-            },
-        },
-    };
-
-    for (cases) |case| {
-        const hit = lineCircleHit(case.p1, case.p2, case.center, case.radius);
-        if (case.expectedHit.hit) {
-            try std.testing.expectEqual(case.expectedHit, hit);
-        } else {
-            try std.testing.expectEqual(false, hit.hit);
         }
     }
 }
