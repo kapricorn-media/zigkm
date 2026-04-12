@@ -249,21 +249,6 @@ pub fn build(b: *std.Build) !void
     // kbModule.addIncludePath(b.path("deps/kb"));
     // kbModule.linkLibrary(kbLib);
 
-    // zigkm-lib
-    const libModule = b.addModule("zigkm-lib", .{
-        .root_source_file = b.path("src/lib2.zig"),
-    });
-
-    // zigkm-math
-    const mathModule = b.addModule("zigkm-math", .{
-        .root_source_file = b.path("src/math.zig"),
-    });
-
-    // zigkm-serialize
-    const serializeModule = b.addModule("zigkm-serialize", .{
-        .root_source_file = b.path("src/serialize.zig"),
-    });
-
     // zigkm-platform
     const platformModule = b.addModule("zigkm-platform", .{
         .root_source_file = b.path("src/platform/platform.zig"),
@@ -300,8 +285,7 @@ pub fn build(b: *std.Build) !void
         .imports = &.{
             // .{.name = "httpz", .module = httpz.module("httpz")},
             // .{.name = "zigkm-kb", .module = kbModule},
-            .{.name = "zigkm-lib", .module = libModule},
-            .{.name = "zigkm-math", .module = mathModule},
+            .{.name = "zigkm", .module = module},
             .{.name = "zigkm-platform", .module = platformModule},
             .{.name = "zigkm-stb", .module = stbModule},
             .{.name = "zigimg", .module = zigimg.module("zigimg")},
@@ -367,9 +351,9 @@ pub fn build(b: *std.Build) !void
         .root_source_file = b.path("src/auth.zig"),
         .imports = &[_]std.Build.Module.Import {
             .{.name = "httpz", .module = httpz.module("httpz")},
+            .{.name = "zigkm", .module = module},
             .{.name = "zigkm-google", .module = googleModule},
             .{.name = "zigkm-platform", .module = platformModule},
-            .{.name = "zigkm-serialize", .module = serializeModule},
         }
     });
     _ = authModule;
@@ -421,8 +405,6 @@ pub fn build(b: *std.Build) !void
                 .optimize = optimize,
             }),
         });
-        testCompile.root_module.addImport("zigkm-lib", libModule);
-        testCompile.root_module.addImport("zigkm-math", mathModule);
         testCompile.root_module.addImport("zigimg", zigimg.module("zigimg"));
 
         const testRun = b.addRunArtifact(testCompile);
@@ -502,11 +484,9 @@ pub fn setupApp(
             .target = targetWasm,
             .optimize = options.optimize,
             .imports = &.{
+                .{.name = "zigkm", .module = zigkmWasm.module("zigkm")},
                 .{.name = "zigkm-app", .module = zigkmWasm.module("zigkm-app")},
-                .{.name = "zigkm-lib", .module = zigkmWasm.module("zigkm-lib")},
-                .{.name = "zigkm-math", .module = zigkmWasm.module("zigkm-math")},
                 .{.name = "zigkm-platform", .module = zigkmWasm.module("zigkm-platform")},
-                .{.name = "zigkm-serialize", .module = zigkmWasm.module("zigkm-serialize")},
                 .{.name = "zigkm-stb", .module = zigkmWasm.module("zigkm-stb")},
             },
         }),
@@ -629,10 +609,9 @@ pub fn setupApp(
                 .target = targetAppIos,
                 .optimize = options.optimize,
                 .imports = &.{
+                    .{.name = "zigkm", .module = zigkmIos.module("zigkm")},
                     .{.name = "zigkm-app", .module = zigkmIos.module("zigkm-app")},
-                    .{.name = "zigkm-math", .module = zigkmIos.module("zigkm-math")},
                     .{.name = "zigkm-platform", .module = zigkmIos.module("zigkm-platform")},
-                    .{.name = "zigkm-serialize", .module = zigkmIos.module("zigkm-serialize")},
                     .{.name = "zigkm-stb", .module = zigkmIos.module("zigkm-stb")},
                 },
             }),
@@ -713,11 +692,9 @@ pub fn setupApp(
         });
         const installAssembly = b.addInstallBinFile(lib.getEmittedAsm(), "hello.s");
         b.getInstallStep().dependOn(&installAssembly.step);
+        lib.root_module.addImport("zigkm", zigkmAndroid.module("zigkm"));
         lib.root_module.addImport("zigkm-app", zigkmAndroid.module("zigkm-app"));
-        lib.root_module.addImport("zigkm-lib", zigkmAndroid.module("zigkm-lib"));
-        lib.root_module.addImport("zigkm-math", zigkmAndroid.module("zigkm-math"));
         lib.root_module.addImport("zigkm-platform", zigkmAndroid.module("zigkm-platform"));
-        lib.root_module.addImport("zigkm-serialize", zigkmAndroid.module("zigkm-serialize"));
         lib.root_module.addImport("zigkm-stb", zigkmAndroid.module("zigkm-stb"));
         const ndkPath = try std.fs.path.join(b.allocator, &.{ao.pathSdk, "ndk", ANDROID_NDK_VERSION});
         const ndkSysroot = try std.fs.path.join(b.allocator, &.{ndkPath, "toolchains", "llvm", "prebuilt", "windows-x86_64", "sysroot", "usr"});

@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const m = @import("zigkm-math");
+const m = @import("zigkm").math;
 const zigimg = @import("zigimg");
 
 const android = @import("android_bindings.zig");

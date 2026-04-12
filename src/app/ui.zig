@@ -2,8 +2,8 @@ const std = @import("std");
 const A = std.mem.Allocator;
 const OOM = A.Error;
 
-const m = @import("zigkm-math");
-const zkl = @import("zigkm-lib");
+const zkm = @import("zigkm");
+const m = zkm.math;
 
 const assets = @import("assets.zig");
 const input = @import("input.zig");
@@ -20,7 +20,7 @@ pub fn State(comptime maxMemory: usize) type
     }
 
     const S = struct {
-        elements: zkl.BoundedArray(Element, maxElements),
+        elements: zkm.BoundedArray(Element, maxElements),
         parent: *Element,
         active: ?*Element,
         screenSize: m.V2,

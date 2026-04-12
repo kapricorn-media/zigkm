@@ -1,9 +1,9 @@
 const std = @import("std");
 const A = std.mem.Allocator;
 
-const m = @import("zigkm-math");
+const zkm = @import("zigkm");
+const m = zkm.math;
 const zigimg = @import("zigimg");
-const zkl = @import("zigkm-lib");
 
 fn readIntBigEndian(comptime T: type, data: []const u8) !T
 {
@@ -286,7 +286,7 @@ test {
 
 pub const SourceEntry = struct {
     md5Checksum: [16]u8,
-    children: zkl.BoundedArray([]const u8, 32),
+    children: zkm.BoundedArray([]const u8, 32),
 };
 
 pub const Data = struct {

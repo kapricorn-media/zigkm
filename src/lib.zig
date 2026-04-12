@@ -2,7 +2,10 @@
 pub const math = @import("math.zig");
 pub const memory = @import("memory.zig");
 pub const serde = @import("serde.zig");
+pub const serialize = @import("serialize.zig"); // old serialize for update
 pub const zlib = @import("zlib.zig");
+
+pub const BoundedArray = @import("bounded_array.zig").BoundedArray;
 
 // multiplayer
 pub const launcher_defs = @import("launcher_defs.zig");

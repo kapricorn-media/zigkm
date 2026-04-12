@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const m = @import("zigkm-math");
+const zkm = @import("zigkm");
+const m = zkm.math;
 const platform = @import("zigkm-platform");
-const zkl = @import("zigkm-lib");
 
 const exports = @import("exports.zig");
 
@@ -97,7 +97,7 @@ pub const ClickEvent = struct {
 pub const MouseState = struct {
     pos: m.V2i,
     wheelDelta: m.V2i,
-    clickEvents: zkl.BoundedArray(ClickEvent, 64),
+    clickEvents: zkm.BoundedArray(ClickEvent, 64),
 
     const Self = @This();
 
@@ -130,8 +130,8 @@ pub const KeyEvent = struct {
 };
 
 pub const KeyboardState = struct {
-    keyEvents: zkl.BoundedArray(KeyEvent, 64),
-    utf32: zkl.BoundedArray(u32, 4096),
+    keyEvents: zkm.BoundedArray(KeyEvent, 64),
+    utf32: zkm.BoundedArray(u32, 4096),
 
     const Self = @This();
 
@@ -281,8 +281,8 @@ const ActiveTouch = struct
 
 pub const TouchState = struct
 {
-    touchEvents: zkl.BoundedArray(TouchEvent, 4096),
-    activeTouches: zkl.BoundedArray(ActiveTouch, 64),
+    touchEvents: zkm.BoundedArray(TouchEvent, 4096),
+    activeTouches: zkm.BoundedArray(ActiveTouch, 64),
 
     const Self = @This();
 
@@ -404,7 +404,7 @@ pub const ActiveFileDrag = struct {
 };
 
 pub const FileDragState = struct {
-    events: zkl.BoundedArray(FileDragEvent, 4096),
+    events: zkm.BoundedArray(FileDragEvent, 4096),
     active: ?ActiveFileDrag,
 
     const Self = @This();

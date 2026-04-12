@@ -2,7 +2,7 @@ const std = @import("std");
 const A = std.mem.Allocator;
 
 const kb = @import("zigkm-kb");
-const m = @import("zigkm-math");
+const m = @import("zigkm").math;
 
 const assets = @import("assets.zig");
 const render = @import("render.zig");

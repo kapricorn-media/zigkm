@@ -2,7 +2,7 @@
 
 const std = @import("std");
 
-const m = @import("zigkm-math");
+const m = @import("zigkm").math;
 const platform = @import("zigkm-platform");
 
 const assets = @import("assets.zig");

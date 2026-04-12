@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const m = @import("zigkm-math");
+const m = @import("zigkm").math;
 
 const defs = @import("defs.zig");
 const memory = @import("memory.zig");

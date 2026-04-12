@@ -1,8 +1,8 @@
 const std = @import("std");
 
-const m = @import("zigkm-math");
+const zkm = @import("zigkm");
+const m = zkm.math;
 const platform = @import("zigkm-platform");
-const zkl = @import("zigkm-lib");
 
 const assets = @import("assets.zig");
 const memory = @import("memory.zig");
@@ -28,8 +28,8 @@ const DirtyStuff = struct {
 pub const RenderQueue = struct {
     pub const EntryQuad = RenderEntryQuad;
 
-    quads: zkl.BoundedArray(RenderEntryQuad, platform_render.MAX_QUADS),
-    textureIds: zkl.BoundedArray(u64, platform_render.MAX_TEXTURES),
+    quads: zkm.BoundedArray(RenderEntryQuad, platform_render.MAX_QUADS),
+    textureIds: zkm.BoundedArray(u64, platform_render.MAX_TEXTURES),
     dirtyStuff: ?DirtyStuff,
 
     const Self = @This();

@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const m = @import("zigkm-math");
+const m = @import("zigkm").math;
 
 const assets = @import("assets.zig");
 const defs = @import("defs.zig");

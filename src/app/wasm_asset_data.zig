@@ -1,7 +1,7 @@
 const std = @import("std");
 
-const m = @import("zigkm-math");
-const zkl = @import("zigkm-lib");
+const zkm = @import("zigkm");
+const m = zkm.math;
 
 const assets = @import("assets.zig");
 const w = @import("wasm_bindings.zig");
@@ -15,7 +15,7 @@ const TextureLoadEntry = struct {
 pub fn AssetLoader(comptime AssetsType: type) type
 {
     const Loader = struct {
-        textureLoadEntries: zkl.BoundedArray(TextureLoadEntry, 1024),
+        textureLoadEntries: zkm.BoundedArray(TextureLoadEntry, 1024),
         textureLoadsInflight: usize,
 
         const Self = @This();
