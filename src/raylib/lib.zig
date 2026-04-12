@@ -81,3 +81,62 @@ pub fn rect(r: m.Rect) c.Rectangle
         .height = r.max[1] - r.min[1],
     };
 }
+
+pub const InitWindowParams = struct {
+    name: [*c]const u8,
+    size: union(enum) {
+        windowed: struct {
+            pos: m.V2,
+            size: m.V2,
+        },
+        windowedAuto: struct {
+            heightFrac: f32,
+            aspect: f32,
+        },
+        fullscreen: void,
+    },
+    flags: c_uint = c.FLAG_VSYNC_HINT | c.FLAG_MSAA_4X_HINT | c.FLAG_WINDOW_RESIZABLE,
+};
+
+pub fn windowSizeFromHeightFracAspect(heightFrac: f32, aspect: f32) m.V2
+{
+    const height = @as(f32, @floatFromInt(c.GetMonitorHeight(c.GetCurrentMonitor()))) * heightFrac;
+    return .{height * aspect, height};
+}
+
+pub fn initWindow(params: InitWindowParams) void
+{
+    c.SetConfigFlags(params.flags);
+    c.InitWindow(800, 600, params.name);
+
+    c.BeginDrawing();
+    c.ClearBackground(c.BLACK);
+    c.EndDrawing();
+
+    var windowInfo: ?struct {
+        pos: m.V2,
+        size: m.V2,
+    } = null;
+    switch (params.size) {
+        .windowed => |p| {
+            windowInfo = .{
+                .pos = p.pos,
+                .size = p.size,
+            };
+        },
+        .windowedAuto => |p| {
+            windowInfo = .{
+                .pos = .{100, 100},
+                .size = windowSizeFromHeightFracAspect(p.heightFrac, p.aspect),
+            };
+        },
+        .fullscreen => {
+            c.ToggleBorderlessWindowed();
+        },
+    }
+
+    if (windowInfo) |wi| {
+        c.SetWindowPosition(@intFromFloat(wi.pos[0]), @intFromFloat(wi.pos[1]));
+        c.SetWindowSize(@intFromFloat(wi.size[0]), @intFromFloat(wi.size[1]));
+    }
+}

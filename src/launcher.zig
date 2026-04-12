@@ -23,10 +23,6 @@ const ClientLoadError = error {
     Other,
 };
 
-const DEFAULT_HEIGHT = 1080;
-// const DEFAULT_HEIGHT = 1080 * 1.5;
-const DEFAULT_WIDTH = DEFAULT_HEIGHT * 16.0 / 9.0;
-
 const Client = struct {
     version: version.Version,
     loadedNs: i128,
@@ -346,9 +342,15 @@ pub fn main() !void
                 },
             }
         } else {
-            rl.SetConfigFlags(rl.FLAG_WINDOW_RESIZABLE);
-            rl.InitWindow(DEFAULT_WIDTH, DEFAULT_HEIGHT, "Photon Cycles");
+            rlz.initWindow(.{
+                .name = "Launcher",
+                .size = .{.windowedAuto = .{
+                    .heightFrac = 0.75,
+                    .aspect = 16.0 / 9.0,
+                }},
+            });
             defer rl.CloseWindow();
+
             rl.SetExitKey(rl.KEY_DELETE);
 
             while (!state.exit.load(.acquire) and !rl.WindowShouldClose()) {
