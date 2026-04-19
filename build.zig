@@ -283,7 +283,6 @@ pub fn build(b: *std.Build) !void
     const appModule = b.addModule("zigkm-app", .{
         .root_source_file = b.path("src/app/app.zig"),
         .imports = &.{
-            // .{.name = "httpz", .module = httpz.module("httpz")},
             // .{.name = "zigkm-kb", .module = kbModule},
             .{.name = "zigkm", .module = module},
             .{.name = "zigkm-platform", .module = platformModule},
