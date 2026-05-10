@@ -21,8 +21,8 @@
             .hash = "zigimg-0.1.0-8_eo2vBrFQAvZmO9NzDP85_qC5JFksuMdyI_KMMEr4bq",
         },
         .zlib = .{
-            .url = "https://zlib.net/zlib-1.3.1.tar.gz",
-            .hash = "N-V-__8AAJj_QgDBhU17TCtcvdjOZZPDfkvxrEAyZkc14VN8",
+            .url = "https://github.com/madler/zlib/archive/da607da739fa6047df13e66a2af6b8bec7c2a498.tar.gz",
+            .hash = "N-V-__8AAI4ANwDM8MWhHTUFLKfvLE_n2NQk6mh0sFDzhTqO",
         },
         .raylib = .{
             .url = "https://github.com/raysan5/raylib/archive/bbf884d7b3068089d007ccc9a9eac0e7ea59af2b.tar.gz",
