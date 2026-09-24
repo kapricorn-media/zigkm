@@ -95,7 +95,7 @@ pub const ClickEvent = struct {
 };
 
 pub const MouseState = struct {
-    pos: m.V2i,
+    pos: m.V2i, // 0, 0 is the bottom left of the screen
     wheelDelta: m.V2i,
     clickEvents: zkm.BoundedArray(ClickEvent, 64),
 
@@ -131,7 +131,7 @@ pub const KeyEvent = struct {
 
 pub const KeyboardState = struct {
     keyEvents: zkm.BoundedArray(KeyEvent, 64),
-    utf32: zkm.BoundedArray(u32, 4096),
+    utf32: zkm.BoundedArray(u32, 32 * 1024),
 
     const Self = @This();
 
